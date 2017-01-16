@@ -7,3 +7,7 @@ exception handling
 
 class NoConvergence(Exception):
     pass
+
+
+class SizeMismatchError(Exception):
+    pass
