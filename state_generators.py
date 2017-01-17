@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.sparse.linalg import eigsh, ArpackNoConvergence
 from spinsys.exceptions import NoConvergence
-import spinsys.half.block as blk
+from spinsys import half
 
 
 def generate_eigenpairs(N, H, num_psi):
@@ -27,6 +27,6 @@ def generate_eigenpairs(N, H, num_psi):
     eigs.sort()
     eigvecs = np.matrix(eigvecs, dtype=complex)
     for i in range(eigvecs.shape[1]):
-        psi = blk.reorder_basis(N, eigvecs[:, i])
+        psi = half.reorder_basis(N, eigvecs[:, i])
         psis.append(psi)
     return eigs, psis

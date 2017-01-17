@@ -1,5 +1,5 @@
 from spinsys.hamiltonians import aubry_andre_quasi_periodic as a
-from spinsys.half.block import similarity_trans_matrix
+from spinsys.half import similarity_trans_matrix
 import unittest
 from numpy import testing
 import numpy as np

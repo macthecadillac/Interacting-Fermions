@@ -1,9 +1,8 @@
 import numpy as np
 from scipy.misc import comb
 from spinsys.utils.globalvar import Globals as G
-import spinsys.half.block as blk
 import spinsys.constructors as cn
-from spinsys.half.misc import full_matrix
+from spinsys import half
 
 
 def aubry_andre_H(N, h, c, phi, J=1):
@@ -19,7 +18,7 @@ def aubry_andre_H(N, h, c, phi, J=1):
     try:
         full_S = G['full_S'][N]
     except KeyError:
-        full_S = [[full_matrix(S, k, N) for k in range(N)]
+        full_S = [[half.full_matrix(S, k, N) for k in range(N)]
                   for S in [Sx, Sy, Sz]]
         G['full_S'][N] = full_S
 
@@ -38,7 +37,7 @@ def block_diagonalized_H(N, h, c, phi, J=1):
     try:
         U = G['similarity_trans_matrix'][N]
     except KeyError:
-        U = blk.similarity_trans_matrix(N)
+        U = half.similarity_trans_matrix(N)
         G['similarity_trans_matrix'][N] = U
     return U * H * U.T
 
