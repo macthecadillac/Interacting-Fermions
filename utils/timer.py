@@ -138,7 +138,7 @@ class Timer():
         term_width = list(shutil.get_terminal_size())[0]
         if self.iteration == 0:
             report_time = ""
-            barlength = term_width - 49
+            barlength = term_width - 72
             filledlength = 0
             percent = 0
         else:
@@ -151,7 +151,7 @@ class Timer():
             ET = self.__sec_to_human_readable_format(est_time)
 
             report_time = "Est. time: {}  Elapsed: {}".format(ET, elapsed)
-            barlength = term_width - len(report_time) - 1
+            barlength = term_width - len(report_time) - 22
             filledlength = int(round(barlength * (self.iteration) / self.total))
             percent = round(100.00 * ((self.iteration) / self.total), 1)
 
