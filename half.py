@@ -50,6 +50,8 @@ def full_matrix(matrix, k, N):
     dim = 2
     if not sp.sparse.issparse(matrix):
         S = sp.sparse.csc_matrix(matrix)
+    else:
+        S = matrix
     if k == 0:
         S_full = sp.sparse.kron(S, sp.sparse.eye(dim ** (N - 1)))
     elif k == 1:
