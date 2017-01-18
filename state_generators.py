@@ -27,6 +27,6 @@ def generate_eigenpairs(N, H, num_psi):
     eigs.sort()
     eigvecs = np.matrix(eigvecs, dtype=complex)
     for i in range(eigvecs.shape[1]):
-        psi = half.reorder_basis(N, eigvecs[:, i])
+        psi = half.expand_and_reorder(N, eigvecs[:, i])
         psis.append(psi)
     return eigs, psis
