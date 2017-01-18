@@ -7,6 +7,7 @@ Timer class.
 import time
 import sys
 import shutil
+import os
 
 
 class EstimateTime():
@@ -40,7 +41,7 @@ class EstimateTime():
     def est(self):
         """This method returns the estimated time"""
         try:
-            time_per_iteration =  self.__alg[self.mode]()
+            time_per_iteration = self.__alg[self.mode]()
             return (self.njobs - self.__iteration) * time_per_iteration
         except ZeroDivisionError:
             return 0
@@ -71,16 +72,14 @@ class Timer():
            unless the show_elapsed option is set to False.
     """
 
-    def __init__(self, total, jname='', mode='auto'):
+    def __init__(self, total, mode='moving_average'):
         """
         Initializes the timer object
 
         Args: "total" is the total number of jobs that would take roughly
               the same amount of time to finish.
-              "barlength" is the length of the bar that will be shown
-              on screen. The default is 25.
-              "show_elapsed" controls whether the final elapsed time is shown
-              after the program finishes. The default is "True."
+              "mode" is the mode of time estimation. Options are "average"
+              and "moving_average".
         """
         self.__start_time = time.time()
         self.iteration = 0
@@ -89,10 +88,8 @@ class Timer():
         # Initiate EstimateTime class to enable precise time estimation.
         self.estimatetime = EstimateTime(self.total, mode)
 
-        # Prints the job name on screen if a name was given, then show the
-        #  progress bar.
-        if jname is not '':
-            print(jname.title())
+        print('Executing {}:'.format(os.path.realpath(sys.argv[0])))
+        # Show progress bar
         self.__show_progress()
 
     def __update_progress(self):
@@ -138,7 +135,7 @@ class Timer():
         term_width = list(shutil.get_terminal_size())[0]
         if self.iteration == 0:
             report_time = ""
-            barlength = term_width - 72
+            barlength = term_width - 80
             filledlength = 0
             percent = 0
         else:
@@ -151,17 +148,20 @@ class Timer():
             ET = self.__sec_to_human_readable_format(est_time)
 
             report_time = "Est. time: {}  Elapsed: {}".format(ET, elapsed)
-            barlength = term_width - len(report_time) - 22
+            barlength = term_width - len(report_time) - 25
             filledlength = int(round(barlength * (self.iteration) / self.total))
             percent = round(100.00 * ((self.iteration) / self.total), 1)
 
         bar = '\u2588' * filledlength + '\u00B7' * (barlength - filledlength)
-        sys.stdout.write('\r%s |%s| %s%s %s' % ('Progress:', bar,
+        sys.stdout.write('\r%s |%s| %s%s %s' % ('  Progress:', bar,
                                                 percent, '%  ', report_time)),
         sys.stdout.flush()
         if self.iteration == self.total:
             sys.stdout.write('\n')
             sys.stdout.flush()
+
+        if self.iteration == self.total:
+            print('  Done.')
 
     def elapsed_time(self):
         """Prints the total elapsed time."""
