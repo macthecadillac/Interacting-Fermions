@@ -22,7 +22,7 @@ def aubry_andre_H(N, h, c, phi, J=1, mode='open'):
           "mode" "open" or "periodic" boundary conditions
     Returns: csc_matrix
     """
-    # try to load Sx, Sy, Sz from the Globals dictionary if it has been
+    # try to load Sx, Sy, Sz from the Globals dictionary if they have been
     #  generated
     try:
         Sx, Sy, Sz = G['sigmas']
@@ -65,7 +65,7 @@ def block_diagonalized_H(N, h, c, phi, J=1, mode='open'):
     """
     H = aubry_andre_H(N, h, c, phi, J, mode)
     # Try to load the similarity transformation matrix from memory.
-    #  Generates the matrix if doesn't exist yet.
+    #  Generates the matrix if doesn't yet exist
     if not G.__contains__('similarity_trans_matrix'):
         G['similarity_trans_matrix'] = {}
     try:
