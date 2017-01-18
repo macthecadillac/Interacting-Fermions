@@ -14,17 +14,25 @@ def full_smatrices(N):
     """Generates operators in the full N-particle Hilbert space
     for the x, y, z directions
     """
+    # try to load Sx, Sy, Sz from the Globals dictionary if they have been
+    #  generated
     try:
-        Sxs, Sys, Szs = G['Sxs'], G['Sys'], G['Szs']
+        Sx, Sy, Sz = G['sigmas']
     except KeyError:
         Sx, Sy, Sz = c.sigmax(), c.sigmay(), c.sigmaz()
-        Sxs, Sys, Szs = [], [], []
-        for k in range(N):
-            Sxs.append(half.full_matrix(Sx, k, N))
-            Sys.append(half.full_matrix(Sy, k, N))
-            Szs.append(half.full_matrix(Sz, k, N))
-        G['Sxs'], G['Sys'], G['Szs'] = Sxs, Sys, Szs
-    return Sxs, Sys, Szs
+        G['sigmas'] = [Sx, Sy, Sz]
+
+    # try to load the full Hilbert space operators from the Globals
+    #  dictionary if they have been generated
+    if not G.__contains__('full_S'):
+        G['full_S'] = {}
+    try:
+        full_S = G['full_S'][N]
+    except KeyError:
+        full_S = [[half.full_matrix(S, k, N) for k in range(N)]
+                  for S in [Sx, Sy, Sz]]
+        G['full_S'][N] = full_S
+    return full_S
 
 
 def nearest_neighbor_interation(N, I, mode):
