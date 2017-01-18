@@ -29,7 +29,7 @@ def diagonal_single_block(N, h, c, phi, J1, J2, I, current_j):
           'current_j' Total <Sz>
     Returns: Sparse matrix (dia matrix)
     """
-    basis_set = half.create_complete_basis(N, current_j)[0]
+    basis_set = half.generate_complete_basis(N, current_j)[0]
     blksize = len(basis_set)
     diagonal = np.zeros(blksize)
     sites = np.array(range(1, N // I + 1)).repeat(I, axis=0)
@@ -79,7 +79,7 @@ def off_diagonal_single_block(N, J1, J2, I, current_j):
             off_diagonal[i, j] += 0.5 * J
 
     dim = 2 ** N
-    basis_set, to_diag, to_ord = half.create_complete_basis(N, current_j)
+    basis_set, to_diag, to_ord = half.generate_complete_basis(N, current_j)
     blksize = len(basis_set)
     off_diagonal = sp.lil_matrix((blksize, blksize), dtype=complex)
 
