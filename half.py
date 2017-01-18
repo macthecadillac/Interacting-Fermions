@@ -80,8 +80,8 @@ def full_matrix(matrix, k, N):
 
 def expand_and_reorder(N, psi_diag, current_j=0):
     """
-    Reorders the basis of a vector from one arranged by their total <Sz>
-    to the tensor product full Hilbert space.
+    Expands and reorders the basis of a vector from one arranged by their
+    total <Sz> to the tensor product full Hilbert space.
 
     Args: "N" System size
           "psi_diag" State in a block diagonalized basis arrangement
