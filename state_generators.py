@@ -14,12 +14,8 @@ def generate_eigenpairs(N, H, num_psi):
     """
     try:
         E = np.sort(eigsh(H, k=2, which='BE', return_eigenvectors=False))
-    except ArpackNoConvergence:
-        raise NoConvergence
-
-    target_E = np.mean(E)
-    psis = []
-    try:
+        target_E = np.mean(E)
+        psis = []
         eigs, eigvecs = eigsh(H, k=int(num_psi), which='LM', sigma=target_E)
     except ArpackNoConvergence:
         raise NoConvergence
