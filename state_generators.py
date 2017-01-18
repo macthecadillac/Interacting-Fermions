@@ -17,16 +17,14 @@ def generate_eigenpairs(N, H, num_psi):
     except ArpackNoConvergence:
         raise NoConvergence
 
-    target_E = .5 * (E[0] + E[-1])
+    target_E = np.mean(E)
     psis = []
     try:
         eigs, eigvecs = eigsh(H, k=int(num_psi), which='LM', sigma=target_E)
     except ArpackNoConvergence:
         raise NoConvergence
 
-    eigs.sort()
-    eigvecs = np.matrix(eigvecs, dtype=complex)
-    for i in range(eigvecs.shape[1]):
+    for i in range(num_psi):
         psi = half.expand_and_reorder(N, eigvecs[:, i])
         psis.append(psi)
     return eigs, psis
