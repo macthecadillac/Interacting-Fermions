@@ -11,29 +11,40 @@ Functions included:
 import numpy as np
 import scipy as sp
 from spinsys import utils
+from spinsys.utils.globalvar import Globals as G
 
 
-def create_complete_basis(N, current_j):
+def generate_complete_basis(N, current_j):
     """Creates a complete basis for the current total <Sz>"""
-    dim = 2 ** N
-    spin_ups = int(round(0.5 * N + current_j))
-    spin_downs = N - spin_ups
-    blksize = int(round(sp.misc.comb(N, spin_ups)))
-    basis_seed = [0] * spin_downs + [1] * spin_ups
-    basis = basis_seed
-    # "to_diag" is a dict that maps ordinary indices to block diagonalized
-    #  indices. "to_ord" is the opposite.
-    basis_set, to_diag, to_ord = [], {}, {}
-    for i in range(blksize):
-        try:
-            basis = utils.misc.binary_permutation(basis)
-        except IndexError:                # When current_j is N // 2 or -N // 2
-            pass
-        basis_set.append(basis[:])
-        decimal_basis = utils.misc.bin_to_dec(basis)
-        # i is the index within only this block
-        to_diag[dim - decimal_basis - 1] = i
-        to_ord[i] = dim - decimal_basis - 1
+    # instantiate a dict if it doesn't exist
+    if not G.__contains__('complete_basis'):
+        G['complete_basis'] = {}
+    if not G['complete_basis'].__contains__(N):
+        G['complete_basis'][N] = {}
+    # reuse generated results if already exists
+    try:
+        basis_set, to_diag, to_ord = G['complete_basis'][N][current_j]
+    except KeyError:
+        dim = 2 ** N
+        spin_ups = int(round(0.5 * N + current_j))
+        spin_downs = N - spin_ups
+        blksize = int(round(sp.misc.comb(N, spin_ups)))
+        basis_seed = [0] * spin_downs + [1] * spin_ups
+        basis = basis_seed
+        # "to_diag" is a dict that maps ordinary indices to block diagonalized
+        #  indices. "to_ord" is the opposite.
+        basis_set, to_diag, to_ord = [], {}, {}
+        for i in range(blksize):
+            try:
+                basis = utils.misc.binary_permutation(basis)
+            except IndexError:            # When current_j is N // 2 or -N // 2
+                pass
+            basis_set.append(basis[:])
+            decimal_representation = utils.misc.bin_to_dec(basis)
+            # i is the index within only this block
+            to_diag[dim - decimal_representation - 1] = i
+            to_ord[i] = dim - decimal_representation - 1
+        G['complete_basis'][N][current_j] = (basis_set, to_diag, to_ord)
     return basis_set, to_diag, to_ord
 
 
@@ -67,10 +78,10 @@ def full_matrix(matrix, k, N):
     return S_full
 
 
-def reorder_basis(N, psi_diag, current_j=0):
+def expand_and_reorder(N, psi_diag, current_j=0):
     """
     Reorders the basis of a vector from one arranged by their total <Sz>
-    to one that results from tensor products.
+    to the tensor product full Hilbert space.
 
     Args: "N" System size
           "psi_diag" State in a block diagonalized basis arrangement
@@ -78,7 +89,7 @@ def reorder_basis(N, psi_diag, current_j=0):
     Returns: Numpy 2D array (column vector)
     """
     psi_ord = np.zeros([2 ** N, 1], complex)
-    to_ord = create_complete_basis(N, current_j)[2]
+    to_ord = generate_complete_basis(N, current_j)[2]
     try:
         for i in psi_diag.nonzero()[0]:
             psi_ord[to_ord[i], 0] = psi_diag[i, 0]
@@ -106,7 +117,7 @@ def similarity_trans_matrix(N):
     for current_j in np.arange(N / 2, -N / 2 - 1, -1):
         spin_ups = round(0.5 * N + current_j)
         blksize = int(round(sp.misc.comb(N, spin_ups)))
-        to_diag = create_complete_basis(N, current_j)[1]
+        to_diag = generate_complete_basis(N, current_j)[1]
         for ord_ind, diag_ind in to_diag.items():
             row_ind[current_pos] = diag_ind + offset
             col_ind[current_pos] = ord_ind
