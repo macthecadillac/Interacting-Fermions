@@ -33,7 +33,8 @@ def bipartite_reduced_density_op(N, state):
     """
     dim = 2 ** (N // 2)            # Dimensions of the reduced density matrices
     if not max(state.shape) == dim ** 2:
-        error_msg = 'Did you forget to recast the state into a full vector?'
+        error_msg = 'Did you forget to expand the state into the full' + \
+            'Hilbert space?'
         raise SizeMismatchError(error_msg)
     reshaped_state = np.reshape(state, [dim, dim])
     return np.dot(reshaped_state, reshaped_state.conjugate().transpose())
