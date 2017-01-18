@@ -147,7 +147,7 @@ class Timer():
             ET = self.__sec_to_human_readable_format(est_time)
 
             report_time = "Est. time: {}  Elapsed: {}".format(ET, elapsed)
-            barlength = term_width - len(report_time) - 25
+            barlength = term_width - len(report_time) - 26
             filledlength = int(round(barlength * (self.iteration) / self.total))
             percent = round(100.00 * ((self.iteration) / self.total), 1)
 
