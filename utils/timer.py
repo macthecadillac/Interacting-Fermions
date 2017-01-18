@@ -88,7 +88,6 @@ class Timer():
         # Initiate EstimateTime class to enable precise time estimation.
         self.estimatetime = EstimateTime(self.total, mode)
 
-        print('Executing {}:'.format(os.path.realpath(sys.argv[0])))
         # Show progress bar
         self.__show_progress()
 
