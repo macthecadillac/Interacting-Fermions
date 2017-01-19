@@ -8,6 +8,7 @@ ways are available. Functions included:
 """
 
 import os
+from . import globalvar
 from scipy import io
 import functools
 import msgpack
@@ -46,4 +47,18 @@ def matcache(function):
             result = function(*args, **kargs)
             io.savemat(cachefile, {'i': result}, appendmat=False)
             return result
+    return wrapper
+
+
+def cache_ram(function):
+    """Wrapper for caching results into the Globals dictionary"""
+    @functools.wraps(function)
+    def wrapper(*args, **kargs):
+        dict_key = '{}{}'.format(function.__name__, (args, kargs))
+        try:
+            result = globalvar.Globals[dict_key]
+        except KeyError:
+            result = function(*args, **kargs)
+            globalvar.Globals[dict_key] = result
+        return result
     return wrapper
