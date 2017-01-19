@@ -1,9 +1,9 @@
-from . import block_diagonalized
 from . import nleg
-from . import nleg_block_diagonalized
+from . import one_leg
+from . import one_leg_block_diagonalized
 
 __all__ = [
-    "block_diagonalized",
     "nleg",
-    "nleg_block_diagonalized"
+    "one_leg",
+    "one_leg_block_diagonalized"
 ]
