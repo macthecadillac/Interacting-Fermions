@@ -20,7 +20,7 @@ class EstimateTime():
         self.dtime_log = []
         # Number of time points to keep in differential time log for
         #  moving average
-        self.__keep_pts = round(0.25 * njobs)
+        self.__keep_pts = 100
         self.__iteration = 0
         self.__elapsed = 0
         self.__alg = {
@@ -53,7 +53,10 @@ class EstimateTime():
         self.__iteration += 1
         dtime = time.time() - self.last_timestamp
         self.last_timestamp = time.time()
-        self.dtime_log.append(dtime)
+        # Discard first iteration since its timing is likely longer
+        #  due to load times
+        if self.__iteration > 1:
+            self.dtime_log.append(dtime)
 
 
 class Timer():
@@ -118,13 +121,13 @@ class Timer():
         else:
             Sec = str(Sec)
         if Days == str(0):
-            elapsed_time = Hr + ":" + Min + ":" + Sec + "        "
+            ET = Hr + ":" + Min + ":" + Sec + "        "
         elif Days == str(1):
-            elapsed_time = Days + " Day " + Hr + ":" + Min + ":" + Sec + "  "
+            ET = Days + " Day " + Hr + ":" + Min + ":" + Sec + "  "
         else:
-            elapsed_time = Days + " Days " + Hr + ":" + Min + ":" + Sec
+            ET = Days + " Days " + Hr + ":" + Min + ":" + Sec
 
-        return elapsed_time
+        return ET
 
     def __show_progress(self):
         """
