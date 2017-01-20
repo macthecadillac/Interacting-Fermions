@@ -32,9 +32,9 @@ def diagonals(N, h, c, phi, J, curr_j, mode):
             #  warranted by the use of multiplication here.
             #  A basis state of [1, 1, -1, -1] in <Sz_i Sz_(i+1)> would
             #  yield 1/4 - 1/4 + 1/4 - 1/4 = 0. We can achieve the same
-            #  results here if we take 1/4 * [1, 1, -1, -1] * [-1, 1, 1, -1],
-            #  effectively by taking the current state and multiply it by
-            #  itself element wise shifted one to the left/right
+            #  effect here if we take 1/4 * [1, 1, -1, -1] * [-1, 1, 1, -1],
+            #  the last two terms being the current state multiplied by
+            #  its shifted self element wise. The results are then summed.
             if mode == 'periodic':
                 inter_contrib = sum(map(lambda x, y: x * y, basis,
                                         [basis[-1]] + basis[:-1]))
