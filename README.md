@@ -29,10 +29,11 @@ function written is general enough to be sorted into one of the
 sub-modules/sub-folders. Temporary scripts for plotting and simulation should
 be put somewhere else to keep the library/repository clean and well-organized.
 
-# Hamiltonians
+# Included in the package:
+## Hamiltonians
     spinsys.hamiltonians.aubry_andre_quasi_periodic
 
-# Functions
+## Functions
     spinsys.constructors.raising
     spinsys.constructors.lowering
     spinsys.constructors.sigmax
@@ -55,7 +56,7 @@ be put somewhere else to keep the library/repository clean and well-organized.
     spinsys.utils.misc.binary_permutation
     spinsys.utils.misc.permutations_any_order
 
-# Classes
+## Classes
     spinsys.exceptions.NoConvergence
     spinsys.exceptions.SizeMismatchError
     spinsys.utils.timer.Timer
