@@ -21,6 +21,29 @@ def diagonals(N, h, c, phi, J, curr_j, mode):
           "mode" "open" or "periodic" boundary conditions
     Returns: csc_matrix
     """
+    # cache to ram since the interaction contribution stays the same
+    #  across configurations
+    @s.utils.io.cache_ram
+    def interaction(N, curr_j, mode):
+        diagonal = np.zeros(mat_dim)
+        for i, basis in enumerate(basis_set):
+            basis = [conv[s] for s in basis]
+            # Interaction contributions. The conversion of 0's to -1's is
+            #  warranted by the use of multiplication here.
+            #  A basis state of [1, 1, -1, -1] in <Sz_i Sz_(i+1)> would
+            #  yield 1/4 - 1/4 + 1/4 - 1/4 = 0. We can achieve the same
+            #  results here if we take 1/4 * [1, 1, -1, -1] * [-1, 1, 1, -1],
+            #  effectively by taking the current state and multiply it by
+            #  itself element wise shifted one to the left/right
+            if mode == 'periodic':
+                inter_contrib = sum(map(lambda x, y: x * y, basis,
+                                        [basis[-1]] + basis[:-1]))
+            elif mode == 'open':
+                inter_contrib = sum(map(lambda x, y: x * y, basis[1:],
+                                        basis[:-1]))
+            diagonal[i] = 0.25 * inter_contrib
+        return diagonal
+
     sites = np.array(range(1, N + 1))
     disorder = h * np.cos(2 * np.pi * c * sites + phi)
     basis_set = s.half.generate_complete_basis(N, curr_j)[0]
@@ -31,25 +54,15 @@ def diagonals(N, h, c, phi, J, curr_j, mode):
         # convert 0's to -1's so the basis configuration would look like
         #  [-1, -1, 1, 1] instead of [0, 0, 1, 1]
         basis = [conv[s] for s in basis]
-        # Interaction contributions. The conversion of 0's to -1's is
-        #  warranted by the use of multiplication here.
-        #  A basis state of [1, 1, -1, -1] in <Sz_i Sz_(i+1)> would yield
-        #  1/4 - 1/4 + 1/4 - 1/4 = 0. We can achieve the same results
-        #  here if we take 1/4 * [1, 1, -1, -1] * [-1, 1, 1, -1], effectively
-        #  by taking the current state and multiply it by itself element wise
-        #  shifted one to the left/right
-        if mode == 'periodic':
-            inter_contrib = sum(map(lambda x, y: x * y, basis,
-                                    [basis[-1]] + basis[:-1]))
-        elif mode == 'open':
-            inter_contrib = sum(map(lambda x, y: x * y, basis[1:], basis[:-1]))
         # Disorder contributions.
         disord_contrib = sum(disorder * basis)
-        diagonal[i] = 0.25 * J * inter_contrib + 0.5 * disord_contrib
+        diagonal[i] = 0.5 * disord_contrib
+    diagonal += interaction(N, curr_j, mode)
     ind = np.arange(0, mat_dim)
     return ss.csc_matrix((diagonal, (ind, ind)), shape=[mat_dim, mat_dim])
 
 
+@s.utils.io.cache_ram
 @s.utils.io.matcache
 def off_diagonals(N, J, curr_j, mode):
     """Generates the off-diagonal elements of the hamiltonian.
