@@ -11,6 +11,7 @@ import os
 from . import globalvar
 from scipy import io
 import functools
+import tempfile
 import msgpack
 
 
@@ -18,10 +19,13 @@ def cache(function):
     """Generic caching wrapper. Should work on any kind of I/O"""
     @functools.wraps(function)
     def wrapper(*args, **kargs):
-        cachefile = '/tmp/spinsys/{}{}.mp'.format(function.__name__,
-                                                  (args, kargs))
-        if not os.path.isdir('/tmp/spinsys/'):
-            os.mkdir('/tmp/spinsys/')
+        # for cross platform compatibility
+        tmpdir = tempfile.gettempdir()
+        cachedir = os.path.join(tmpdir, 'spinsys')
+        cachefile = os.path.join(tmpdir, 'spinsys', '{}{}'
+                                 .format(function.__name__, (args, kargs)))
+        if not os.path.isdir(cachedir):
+            os.mkdir(cachedir)
         try:
             with open(cachefile, 'rb') as c:
                 return msgpack.load(c)
@@ -37,10 +41,12 @@ def matcache(function):
     """Caching wrapper for sparse matrix generating functions."""
     @functools.wraps(function)
     def wrapper(*args, **kargs):
-        cachefile = '/tmp/spinsys/{}{}.mat'.format(function.__name__,
-                                                   (args, kargs))
-        if not os.path.isdir('/tmp/spinsys/'):
-            os.mkdir('/tmp/spinsys/')
+        tmpdir = tempfile.gettempdir()
+        cachedir = os.path.join(tmpdir, 'spinsys')
+        cachefile = os.path.join(tmpdir, 'spinsys', '{}{}'
+                                 .format(function.__name__, (args, kargs)))
+        if not os.path.isdir(cachedir):
+            os.mkdir(cachedir)
         try:
             return io.loadmat(cachefile)['i']
         except FileNotFoundError:
