@@ -29,15 +29,18 @@ function written is general enough to be sorted into one of the
 sub-modules/sub-folders. Temporary scripts for plotting and simulation should
 be put somewhere else to keep the library/repository clean and well-organized.
 
-# Functions (List incomplete)
+# Hamiltonians
+    spinsys.hamiltonians.aubry_andre_quasi_periodic
+
+# Functions
     spinsys.constructors.raising
     spinsys.constructors.lowering
     spinsys.constructors.sigmax
     spinsys.constructors.sigmay
     spinsys.constructors.sigmaz
-    spinsys.half.create_complete_basis
+    spinsys.half.generate_complete_basis
     spinsys.half.full_matrix
-    spinsys.half.reorder_basis
+    spinsys.half.expand_and_reorder
     spinsys.half.similarity_trans_matrix
     spinsys.quantities.adj_gap_ratio
     spinsys.quantities.bipartite_reduced_density_op
@@ -45,13 +48,14 @@ be put somewhere else to keep the library/repository clean and well-organized.
     spinsys.state_generators.generate_eigenpairs
     spinsys.utils.io.cache
     spinsys.utils.io.matcache
+    spinsys.utils.io.cache_ram
     spinsys.utils.log.logged
     spinsys.utils.misc.bin_to_dec
     spinsys.utils.misc.permutation
     spinsys.utils.misc.binary_permutation
     spinsys.utils.misc.permutations_any_order
 
-# Classes (List incomplete)
+# Classes
     spinsys.exceptions.NoConvergence
     spinsys.exceptions.SizeMismatchError
     spinsys.utils.timer.Timer
