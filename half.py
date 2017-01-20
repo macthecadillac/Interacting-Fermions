@@ -88,15 +88,19 @@ def expand_and_reorder(N, psi_diag, current_j=0):
           "current_j" Total <Sz>
     Returns: Numpy 2D array (column vector)
     """
-    psi_ord = np.zeros([2 ** N, 1], complex)
+    # psi_ord = np.zeros([2 ** N, 1], complex)
     to_ord = generate_complete_basis(N, current_j)[2]
-    try:
-        for i in psi_diag.nonzero()[0]:
-            psi_ord[to_ord[i], 0] = psi_diag[i, 0]
-    # The except suite provides compatibility with 1-D Numpy vectors
-    except IndexError:
-        for i in psi_diag.nonzero()[0]:
-            psi_ord[to_ord[i], 0] = psi_diag[i]
+    # try:
+    #     for i in psi_diag.nonzero()[0]:
+    #         psi_ord[to_ord[i], 0] = psi_diag[i, 0]
+    # # The except suite provides compatibility with 1-D Numpy vectors
+    # except IndexError:
+    #     for i in psi_diag.nonzero()[0]:
+    #         psi_ord[to_ord[i], 0] = psi_diag[i]
+    veclen = max(psi_diag.shape)
+    indices = [to_ord[i] for i in range(veclen)]
+    psi_ord = sp.sparse.csc_matrix((psi_diag, indices, [0, veclen]),
+                                   shape=[2 ** N, 1]).toarray()
     return psi_ord
 
 
