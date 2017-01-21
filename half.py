@@ -86,13 +86,15 @@ def expand_and_reorder(N, psi_diag, current_j=0):
     Args: "N" System size
           "psi_diag" State in a block diagonalized basis arrangement
           "current_j" Total <Sz>
-    Returns: Numpy 2D array (column vector)
+    Returns: Numpy 1D vector
     """
     to_ord = generate_complete_basis(N, current_j)[2]
     veclen = max(psi_diag.shape)
     indices = [to_ord[i] for i in range(veclen)]
+    # uses csc_matrix for efficient reordering of the vector. Reshape at
+    #  the end ensures the vector comes out to be a normal 1D vector
     psi_ord = sp.sparse.csc_matrix((psi_diag, indices, [0, veclen]),
-                                   shape=[2 ** N, 1]).toarray()
+                                   shape=[2 ** N, 1]).toarray().reshape(2 ** N)
     return psi_ord
 
 
