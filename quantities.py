@@ -5,6 +5,8 @@ the spin system.
 """
 
 import numpy as np
+import scipy.sparse as ss
+import spinsys
 from spinsys.utils.globalvar import Globals as G
 from spinsys.exceptions import SizeMismatchError
 
@@ -45,7 +47,7 @@ def von_neumann_entropy(N, state, base='e'):
     Find the bipartite von Neumann entropy of a given state.
 
     Args: "N" total system size
-          "state" a column vector that has to be dense
+          "state" a vector that has to be dense
           "base" the base of the log function. It could be 'e', '2' or '10'
           "return_eigvals" a boolean that if set to True will return all
                 the eigenvalues of the density matrix
@@ -63,3 +65,32 @@ def von_neumann_entropy(N, state, base='e'):
     entropy = sum(-eigs_filtered * log[base](eigs_filtered))
     G['reduced_density_op_eigs'] = np.sort(eigs)[::-1]
     return entropy
+
+
+def half_chain_spin_dispersion(N, psi):
+    """Find the half chain Sz dispersion.
+
+    Args: "N" number of sites
+          "psi" a vector. Must be 1D numpy array.
+    Return: float
+    """
+    @spinsys.utils.io.cache_ram
+    def first_half_chain_Sz_op_diagonal(N):
+        """Returns the diagonal of the half chain Sz operator.
+        (First half of the chain)
+        """
+        basis_set = spinsys.half.generate_complete_basis(N, 0)[0]
+        conv = {1: 1, 0: -1}         # dict for conversion of 0's to -1's
+        mat_dim = len(basis_set)     # size of the block for the given total <Sz>
+        diagonal = np.empty(mat_dim)
+        for i, basis in enumerate(basis_set):
+            # convert 0's to -1's so the basis configuration would look like
+            #  [-1, -1, 1, 1] instead of [0, 0, 1, 1]
+            basis = [conv[s] for s in basis[: N // 2]]  # half chain total <Sz>
+            diagonal[i] = 0.5 * sum(basis)
+        return diagonal
+
+    tot_Sz_diagonal = first_half_chain_Sz_op_diagonal(N)
+    Sz_expected = psi.conjugate().dot(tot_Sz_diagonal * psi)
+    Sz2_expected = psi.conjugate().dot(tot_Sz_diagonal ** 2 * psi)
+    return Sz2_expected - Sz_expected ** 2
