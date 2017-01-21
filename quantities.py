@@ -91,6 +91,8 @@ def half_chain_spin_dispersion(N, psi):
         return diagonal
 
     tot_Sz_diagonal = first_half_chain_Sz_op_diagonal(N)
+    # product of a diagonal matrix and a vector is the same as element wise
+    #  multiplcation of the diagonal of the said matrix with the vector
     Sz_expected = psi.conjugate().dot(tot_Sz_diagonal * psi)
     Sz2_expected = psi.conjugate().dot(tot_Sz_diagonal ** 2 * psi)
     return Sz2_expected - Sz_expected ** 2
