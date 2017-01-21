@@ -5,7 +5,6 @@ the spin system.
 """
 
 import numpy as np
-import scipy.sparse as ss
 import spinsys
 from spinsys.utils.globalvar import Globals as G
 from spinsys.exceptions import SizeMismatchError
@@ -67,7 +66,7 @@ def von_neumann_entropy(N, state, base='e'):
     return entropy
 
 
-def half_chain_spin_dispersion(N, psi):
+def half_chain_spin_dispersion(N, psi, curr_j=0):
     """Find the half chain Sz dispersion.
 
     Args: "N" number of sites
@@ -75,11 +74,11 @@ def half_chain_spin_dispersion(N, psi):
     Return: float
     """
     @spinsys.utils.io.cache_ram
-    def first_half_chain_Sz_op_diagonal(N):
+    def first_half_chain_Sz_op_diagonal(N, curr_j):
         """Returns the diagonal of the half chain Sz operator.
         (First half of the chain)
         """
-        basis_set = spinsys.half.generate_complete_basis(N, 0)[0]
+        basis_set = spinsys.half.generate_complete_basis(N, curr_j)[0]
         conv = {1: 1, 0: -1}         # dict for conversion of 0's to -1's
         mat_dim = len(basis_set)     # size of the block for the given total <Sz>
         diagonal = np.empty(mat_dim)
@@ -90,7 +89,7 @@ def half_chain_spin_dispersion(N, psi):
             diagonal[i] = 0.5 * sum(basis)
         return diagonal
 
-    tot_Sz_diagonal = first_half_chain_Sz_op_diagonal(N)
+    tot_Sz_diagonal = first_half_chain_Sz_op_diagonal(N, curr_j)
     # product of a diagonal matrix and a vector is the same as element wise
     #  multiplcation of the diagonal of the said matrix with the vector
     Sz_expected = psi.conjugate().dot(tot_Sz_diagonal * psi)
