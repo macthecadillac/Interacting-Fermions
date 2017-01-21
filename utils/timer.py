@@ -20,7 +20,7 @@ class EstimateTime():
         self.dtime_log = []
         # Number of time points to keep in differential time log for
         #  moving average
-        self.__keep_pts = 100
+        self.__keep_pts = max(0.2 * njobs, 100)
         self.__iteration = 0
         self.__elapsed = 0
         self.__alg = {
