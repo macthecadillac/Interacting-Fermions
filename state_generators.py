@@ -4,7 +4,7 @@ from spinsys.exceptions import NoConvergence
 from spinsys import half
 
 
-def generate_eigenpairs(N, H, num_psi):
+def generate_eigenpairs(N, H, num_psi, expand=True):
     """
     Generate Eigenpairs using Shift Inversion Method
     :param N:
@@ -15,12 +15,15 @@ def generate_eigenpairs(N, H, num_psi):
     try:
         E = np.sort(eigsh(H, k=2, which='BE', return_eigenvectors=False))
         target_E = np.mean(E)
-        psis = []
         eigs, eigvecs = eigsh(H, k=int(num_psi), which='LM', sigma=target_E)
     except ArpackNoConvergence:
         raise NoConvergence
 
-    for i in range(num_psi):
-        psi = half.expand_and_reorder(N, eigvecs[:, i])
-        psis.append(psi)
+    if expand:
+        psis = []
+        for i in range(num_psi):
+            psi = half.expand_and_reorder(N, eigvecs[:, i])
+            psis.append(psi)
+    else:
+        psis = [eigvecs[:, i] for i in range(num_psi)]
     return eigs, psis
