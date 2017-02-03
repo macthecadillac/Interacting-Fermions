@@ -100,6 +100,7 @@ def half_chain_spin_dispersion(N, psi, curr_j=0):
 
 def spin_glass_order(N, psi):
     """Calculates the spin glass order 1/N * \sum_{i, j} |<S_i \cdot S_j>^2|
+    NEEDS TO BE TESTED FOR BUGS
 
     Args: "N" number of sites
           "psi" a given state.
@@ -127,14 +128,12 @@ def spin_glass_order(N, psi):
                   for s in range(3)]
         return list(map(list, full_S))
 
-    @spinsys.utils.io.cache_ram
-    def Sj_dot_ket(j, psi):
+    def Sj_dot_ket(j):
         """Generate Sj|psi> for every site for the current state."""
         # The outputs are numpy 1D arrays because of toarray and flatten
         return [full_S[s][j].dot(psi).toarray().flatten() for s in range(3)]
 
-    @spinsys.utils.io.cache_ram
-    def bra_dot_Si(i, psi):
+    def bra_dot_Si(i):
         """Generate <psi|Si for every site for the current state."""
         # The outputs are numpy 1D arrays because of toarray and flatten
         psi_conjtransp = psi.T.conjugate()
@@ -144,12 +143,12 @@ def spin_glass_order(N, psi):
     full_S = full_spin_operators(N)
     # Convert psi to sparse for better performance in the next stage
     psi = sp.sparse.csc_matrix(psi.reshape(psi.shape[0], 1))
-    sg_order_off_diag = sum(np.abs(bra_dot_Si(i, psi)[s]
-                                   .dot(Sj_dot_ket(j, psi)[s])) ** 2
+    bra_dot_Sis = [bra_dot_Si(i) for i in range(N)]
+    Sj_dot_kets = [Sj_dot_ket(j) for j in range(N)]
+    sg_order_off_diag = sum(np.abs(bra_dot_Sis[i][s].dot(Sj_dot_kets[j][s])) ** 2
                             for s in range(3)
                             for i in range(N)
                             for j in range(i + 1, N)) * 2
-    sg_order_diag = sum(np.abs(bra_dot_Si(i, psi)[s]
-                               .dot(Sj_dot_ket(i, psi)[s])) ** 2
+    sg_order_diag = sum(np.abs(bra_dot_Sis[i][s].dot(Sj_dot_kets[i][s])) ** 2
                         for s in range(3) for i in range(N))
     return (sg_order_off_diag + sg_order_diag) / N
