@@ -48,7 +48,11 @@ def generate_product_state(H, tol=1e-6):
         return (E - Emin) / (Emax - Emin)
 
     veclen = H.shape[0]
-    Emin, Emax = np.sort(eigsh(H, k=2, which='BE', return_eigenvectors=False))
+    try:
+        Emin, Emax = np.sort(eigsh(H, k=2, which='BE',
+                             return_eigenvectors=False))
+    except ArpackNoConvergence:
+        raise NoConvergence
     # This works because we are using basis states of H. <H> with basis states
     #  always return diagonal elements
     energy_expvals = H.diagonal()
