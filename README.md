@@ -32,6 +32,7 @@ be put somewhere else to keep the library/repository clean and well-organized.
 # Included in the package:
 ## Hamiltonians
     spinsys.hamiltonians.aubry_andre_quasi_periodic
+    spinsys.hamiltonians.heisenberg_chain
 
 ## Functions
     spinsys.constructors.raising
@@ -45,8 +46,10 @@ be put somewhere else to keep the library/repository clean and well-organized.
     spinsys.half.similarity_trans_matrix
     spinsys.quantities.adj_gap_ratio
     spinsys.quantities.bipartite_reduced_density_op
+    spinsys.quantities.spin_glass_order
     spinsys.quantities.von_neumann_entropy
     spinsys.state_generators.generate_eigenpairs
+    spinsys.state_generators.generate_product_state
     spinsys.utils.io.cache
     spinsys.utils.io.matcache
     spinsys.utils.io.cache_ram
@@ -59,4 +62,6 @@ be put somewhere else to keep the library/repository clean and well-organized.
 ## Classes
     spinsys.exceptions.NoConvergence
     spinsys.exceptions.SizeMismatchError
+    spinsys.exceptions.StateNotFoundError
+    spinsys.time_dependent.TimerMachine
     spinsys.utils.timer.Timer
