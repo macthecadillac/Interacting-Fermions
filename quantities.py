@@ -108,7 +108,7 @@ def spin_glass_order(N, psi):
     @spinsys.utils.io.cache_ram
     def full_spin_operators(N):
         """Generate full spin operators for every site in the block
-        diagonal basis
+        diagonal basis for the <Sz>=0 subspace
         """
         Sx = spinsys.constructors.sigmax()
         Sy = spinsys.constructors.sigmay()
