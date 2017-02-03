@@ -144,10 +144,12 @@ def spin_glass_order(N, psi):
     full_S = full_spin_operators(N)
     # Convert psi to sparse for better performance in the next stage
     psi = sp.sparse.csc_matrix(psi.reshape(psi.shape[0], 1))
-    sg_order_off_diag = sum(bra_dot_Si(i, psi)[s].dot(Sj_dot_ket(j, psi)[s]) ** 2
+    sg_order_off_diag = sum(np.abs(bra_dot_Si(i, psi)[s]
+                                   .dot(Sj_dot_ket(j, psi)[s])) ** 2
                             for s in range(3)
                             for i in range(N)
                             for j in range(i + 1, N)) * 2
-    sg_order_diag = sum(bra_dot_Si(i, psi)[s].dot(Sj_dot_ket(i, psi)[s]) ** 2
+    sg_order_diag = sum(np.abs(bra_dot_Si(i, psi)[s]
+                               .dot(Sj_dot_ket(i, psi)[s])) ** 2
                         for s in range(3) for i in range(N))
     return (sg_order_off_diag + sg_order_diag) / N
