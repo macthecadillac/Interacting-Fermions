@@ -5,6 +5,7 @@ the spin system.
 """
 
 import numpy as np
+import scipy as sp
 import spinsys
 from spinsys.utils.globalvar import Globals as G
 from spinsys.exceptions import SizeMismatchError
@@ -95,3 +96,58 @@ def half_chain_spin_dispersion(N, psi, curr_j=0):
     Sz_expected = psi.conjugate().dot(tot_Sz_diagonal * psi)
     Sz2_expected = psi.conjugate().dot(tot_Sz_diagonal ** 2 * psi)
     return Sz2_expected - Sz_expected ** 2
+
+
+def spin_glass_order(N, psi):
+    """Calculates the spin glass order 1/N * \sum_{i, j} |<S_i \cdot S_j>^2|
+
+    Args: "N" number of sites
+          "psi" a given state.
+    Returns: float
+    """
+    @spinsys.utils.io.cache_ram
+    def full_spin_operators(N):
+        """Generate full spin operators for every site in the block
+        diagonal basis
+        """
+        Sx = spinsys.constructors.sigmax()
+        Sy = spinsys.constructors.sigmay()
+        Sz = spinsys.constructors.sigmaz()
+        U = spinsys.half.similarity_trans_matrix(N)
+        blk_size = int(round(sp.misc.comb(N, N / 2)))
+        start = (2 ** N - blk_size) // 2
+        end = start + blk_size
+
+        # Generate full spin operators for every site
+        full_S = [[spinsys.half.full_matrix(S, k, N) for k in range(N)]
+                  for S in [Sx, Sy, Sz]]
+        # Transform the spin operator into block diagonalized basis and
+        #  truncate
+        full_S = [map(lambda x: (U * x * U.T)[start: end, start: end], full_S[s])
+                  for s in range(3)]
+        return list(map(list, full_S))
+
+    @spinsys.utils.io.cache_ram
+    def Sj_dot_ket(j, psi):
+        """Generate Sj|psi> for every site for the current state."""
+        # The outputs are numpy 1D arrays because of toarray and flatten
+        return [full_S[s][j].dot(psi).toarray().flatten() for s in range(3)]
+
+    @spinsys.utils.io.cache_ram
+    def bra_dot_Si(i, psi):
+        """Generate <psi|Si for every site for the current state."""
+        # The outputs are numpy 1D arrays because of toarray and flatten
+        psi_conjtransp = psi.T.conjugate()
+        return [psi_conjtransp.dot(full_S[s][i]).toarray().flatten()
+                for s in range(3)]
+
+    full_S = full_spin_operators(N)
+    # Convert psi to sparse for better performance in the next stage
+    psi = sp.sparse.csc_matrix(psi.reshape(psi.shape[0], 1))
+    sg_order_off_diag = sum(bra_dot_Si(i, psi)[s].dot(Sj_dot_ket(j, psi)[s]) ** 2
+                            for s in range(3)
+                            for i in range(N)
+                            for j in range(i + 1, N)) * 2
+    sg_order_diag = sum(bra_dot_Si(i, psi)[s].dot(Sj_dot_ket(i, psi)[s]) ** 2
+                        for s in range(3) for i in range(N))
+    return (sg_order_off_diag + sg_order_diag) / N
