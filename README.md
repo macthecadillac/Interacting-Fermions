@@ -63,5 +63,5 @@ be put somewhere else to keep the library/repository clean and well-organized.
     spinsys.exceptions.NoConvergence
     spinsys.exceptions.SizeMismatchError
     spinsys.exceptions.StateNotFoundError
-    spinsys.time_dependent.TimerMachine
+    spinsys.time_dependent.TimeMachine
     spinsys.utils.timer.Timer
