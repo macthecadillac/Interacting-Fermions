@@ -5,6 +5,7 @@ from spinsys import hamiltonians
 from spinsys import quantities
 from spinsys import state_generators
 from spinsys import tests
+from spinsys import time_dependent
 from spinsys import utils
 import shutil
 import numpy
@@ -17,6 +18,7 @@ __all__ = [
     "quantities",
     "state_generators",
     "tests",
+    "time_dependent",
     "utils"
 ]
 

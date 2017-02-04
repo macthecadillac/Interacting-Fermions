@@ -11,3 +11,7 @@ class NoConvergence(Exception):
 
 class SizeMismatchError(Exception):
     pass
+
+
+class StateNotFoundError(Exception):
+    pass
