@@ -1,6 +1,6 @@
 """Provides functions to generate the one-legged hamiltonian.
 
-1-19-2017
+3-8-2017
 """
 
 import spinsys as s
@@ -41,7 +41,7 @@ def diagonals(N, h, c, phi, J, curr_j, mode):
             elif mode == 'open':
                 inter_contrib = sum(map(lambda x, y: x * y, basis[1:],
                                         basis[:-1]))
-            diagonal[i] = 0.25 * inter_contrib
+            diagonal[i] = J * 0.25 * inter_contrib
         return diagonal
 
     sites = np.array(range(1, N + 1))
