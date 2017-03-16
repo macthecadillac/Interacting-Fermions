@@ -1,4 +1,4 @@
-from spinsys.hamiltonians import aubry_andre_quasi_periodic as a
+from spinsys.hamiltonians import quasi_heisenberg as a
 from spinsys.half import similarity_trans_matrix
 import unittest
 from numpy import testing
