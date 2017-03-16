@@ -2,10 +2,6 @@
 using tensor products
 
 3-16-2017
-
-- open BC is OK for all configs tested
-- periodic BC is OK for all 1-D configs tested but failed for every
-  2-D config tested
 """
 
 import numpy as np
@@ -82,12 +78,14 @@ def H(N, W1, c1, phi1, J1=1, W2=0, c2=0, phi2=0, J2=0, nleg=1, mode='open'):
     #  twice, not exactly what we are looking for.
     if (mode == 'periodic' and not l2 == 2):
         # if periodic BC, loop over every site
-        js = range(0, N)
+        js = range(0, l2)
     else:
-        # if open BC, skip indices that are multiples of nleg
-        js = (j for j in range(1, N) if not j % l2 == 0)
-    inter_terms2 = J2 * sum(full_S[i][j - 1] * full_S[i][j]
-                            for j in js for i in range(3))
+        # if open BC, skip indices that are at the start of a column
+        js = range(1, l2)
+    inter_terms2 = J2 * sum(full_S[i][col * l2: col * l2 + l2][j - 1] *
+                            full_S[i][col * l2: col * l2 + l2][j]
+                            for j in js for col in range(l1) for i in range(3))
+
     inter_terms = inter_terms1 + inter_terms2
 
     # Contributions from the disorder field
