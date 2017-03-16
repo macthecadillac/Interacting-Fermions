@@ -1,6 +1,6 @@
 """Provides functions to generate the one-legged hamiltonian.
 
-3-9-2017
+3-15-2017
 """
 
 import spinsys as s
@@ -80,8 +80,9 @@ def off_diagonals(N, J, curr_j, mode):
     return ss.csc_matrix((data, (row_ind, col_ind)), shape=[mat_dim, mat_dim])
 
 
-def single_blk_hamiltonian(N, J=1, curr_j=0, mode='open'):
-    """Generates the full hamiltonian
+def H(N, J=1, curr_j=0, mode='open'):
+    """Generates the full hamiltonian for a block corresponding to a
+    specific total spin.
 
     Args: "N" number of sites
           "J" coupling constant between sites

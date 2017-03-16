@@ -1,7 +1,7 @@
 """Provides functions that generate the hamiltonian. Open or
 periodic boundary conditions.
 
-1-23-2017
+3-15-2017
 """
 
 from spinsys.utils.globalvar import Globals as G
@@ -9,7 +9,7 @@ import spinsys.constructors as cn
 from spinsys import half
 
 
-def heisenberg_chain_H(N, h=0, J=1, mode='open'):
+def H(N, h=0, J=1, mode='open'):
     """Generates the full hamiltonian
 
     Args: "N" number of sites
