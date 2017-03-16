@@ -1,4 +1,4 @@
-from . import one_leg
-from . import one_leg_diagonalized
+from . import oneleg
+from . import oneleg_blkdiag
 
-__all__ = ['one_leg', 'one_leg_diagonalized']
+__all__ = ['oneleg', 'oneleg_blkdiag']
