@@ -4,7 +4,6 @@ from spinsys import half
 from spinsys import hamiltonians
 from spinsys import quantities
 from spinsys import state_generators
-from spinsys import tests
 from spinsys import time_dependent
 from spinsys import utils
 import shutil
@@ -17,7 +16,6 @@ __all__ = [
     "hamiltonians",
     "quantities",
     "state_generators",
-    "tests",
     "time_dependent",
     "utils"
 ]

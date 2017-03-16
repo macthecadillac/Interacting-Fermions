@@ -1,4 +1,4 @@
-from . import aubry_andre_quasi_periodic
-from . import heisenberg_chain
+from . import quasi_heisenberg
+from . import heisenberg
 
-__all__ = ['aubry_andre_quasi_periodic', 'heisenberg_chain']
+__all__ = ['quasi_heisenberg', 'heisenberg']
