@@ -1,7 +1,11 @@
 """This module provides functions to generate a N-legged hamiltonian
 using tensor products
 
-1-17-2017
+3-16-2017
+
+- open BC is OK for all configs tested
+- periodic BC is OK for all 1-D configs tested but failed for every
+  2-D config tested
 """
 
 import numpy as np
@@ -10,10 +14,26 @@ from spinsys import constructors as c
 from spinsys.utils.globalvar import Globals as G
 
 
-def full_smatrices(N):
-    """Generates operators in the full N-particle Hilbert space
-    for the x, y, z directions
+def H(N, W1, c1, phi1, J1=1, W2=0, c2=0, phi2=0, J2=0, nleg=1, mode='open'):
+    """Generates the multi-leg hamiltonian for a 2-D lattice
+
+    Args: "N" total number of sites
+          "W1" disorder strength along the horizontal
+          "c1" trancendental number in the cosine term in the horizontal
+               field term
+          "phi1" phase factor for the horizontal field term
+          "J1" nearest neighbor coupling constant along the horizontal
+          "W2" disorder strength along the vertical
+          "c2" trancendental number in the cosine term in the vertical
+               field term
+          "phi2" phase factor for the vertical field term
+          "J2" nearest neighbor coupling constant along the vertical
+          "nleg" number of legs i.e. number of horizontal rungs on the
+                 lattice
+          "mode" "peiodic" or "open" boundary conditions
+    Returns: csc_matrix
     """
+
     # try to load Sx, Sy, Sz from the Globals dictionary if they have been
     #  generated
     try:
@@ -32,75 +52,59 @@ def full_smatrices(N):
         full_S = [[half.full_matrix(S, k, N) for k in range(N)]
                   for S in [Sx, Sy, Sz]]
         G['full_S'][N] = full_S
-    return full_S
 
+    # The following section describes a hamiltonian of a 2-D latice that
+    #  we label the following way
+    #     0     l2      2*l2    ...  (l1-1)*l2
+    #     1     l2+1    2*l2+1  ...  (l1-1)*l2+1
+    #     2     l2+2    2*l2+2  ...  (l1-1)*l2+2
+    #     ...
+    #     l2-1  2*l2-1  3*l2-1  ...  l1*l2-1
+    l1 = N // nleg  # number of sites along the "horizontal"
+    l2 = nleg       # number of sites along the "vertical" (number of legs)
+    # Nearest neighbor contributions along the horizontal direction (along
+    #  which J1 is the coupling constant)
+    if nleg == N:
+        J1 = 0   # interaction=0 if there's only 1 site along direction
+    # mode == 'periodic' is self-explanatory. l1==2 and lb1=0 would imply
+    #  adjacent sites along adjacent legs interact with each other twice,
+    #  not exactly what we are looking for.
+    lb1 = 0 if (mode == 'periodic' and not l1 == 2) else l2
+    inter_terms1 = J1 * sum(full_S[i][j - l2] * full_S[i][j]
+                            for j in range(lb1, N) for i in range(3))
 
-def nearest_neighbor_interation(N, I, mode):
-    """Generates the contribution from nearest neighber interations
+    # Nearest neighbor contributions along the vertical direction (along
+    #  which J2 is the coupling constant)
+    if nleg == 1:
+        J2 = 0   # interaction=0 if there's only 1 site along direction
+    # mode == 'periodic' is self-explanatory. l2==2 and js looping over
+    #  every index would imply adjacent sites interact with each other
+    #  twice, not exactly what we are looking for.
+    if (mode == 'periodic' and not l2 == 2):
+        # if periodic BC, loop over every site
+        js = range(0, N)
+    else:
+        # if open BC, skip indices that are multiples of nleg
+        js = (j for j in range(1, N) if not j % l2 == 0)
+    inter_terms2 = J2 * sum(full_S[i][j - 1] * full_S[i][j]
+                            for j in js for i in range(3))
+    inter_terms = inter_terms1 + inter_terms2
 
-    Args: "N" the number of sites
-          "I" the number of legs
-          "mode" "periodic" or "open"
-    Returns: csc_matrix
-    """
-    total_interaction = []
-    lower_bound = 0 if (mode == 'periodic' and not I == N) else I
-    Sxs, Sys, Szs = full_smatrices(N)
-    for k in range(lower_bound, N):
-        total_interaction.append(Sxs[k - I] * Sxs[k])
-        total_interaction.append(Sys[k - I] * Sys[k])
-        total_interaction.append(Szs[k - I] * Szs[k])
-    return sum(total_interaction)
+    # Contributions from the disorder field
+    # --- along horizontal direction ---
+    if l1 == 1:     # field contrib=0 if length of leg=1 aka 1D
+        field1 = np.zeros([1])
+    else:
+        field1 = W1 * np.cos(2 * np.pi * c1 * np.arange(1, l1 + 1) + phi1)
+    # --- along vertical direction ---
+    if l2 == 1:      # field contrib=0 if length of leg=1 aka 1D
+        field2 = np.zeros([1])
+    else:
+        field2 = W2 * np.cos(2 * np.pi * c2 * np.arange(1, l2 + 1) + phi2)
 
+    field = field1.repeat(l2) + field2.repeat(l1).reshape(l2, l1).T.flatten()
+    field_terms = sum(field * full_S[2])
 
-def inter_chain_interation(N, I, mode):
-    """Generates the contribution from interation between legs
-
-    Args: "N" the number of sites
-          "I" the number of legs
-          "mode" "periodic" or "open"
-    Returns: csc_matrix
-    """
-    total_interaction = []
-    lower_bound = 0 if (mode == 'periodic' and not I == 1) else 1
-    Sxs, Sys, Szs = full_smatrices(N)
-    for i in range(lower_bound, I):
-        for j in range(N // I):
-            total_interaction.append(Sxs[i + j * I - 1] * Sxs[i + j * I])
-            total_interaction.append(Sys[i + j * I - 1] * Sys[i + j * I])
-            total_interaction.append(Szs[i + j * I - 1] * Szs[i + j * I])
-    return sum(total_interaction)
-
-
-def field_terms(N, h, c, phi, I):
-    """Generates the contribution from the quasi-periodic field.
-
-    Args: "N" the number of sites
-          "h" disorder strength
-          "c" transcendental number that finds itself popping up in the field
-          "phi" phase
-          "I" number of legs
-    Returns: csc_matrix
-    """
-    Szs = full_smatrices(N)[2]
-    sites = np.array(range(1, N // I + 1)).repeat(I, axis=0)
-    field = h * np.cos(2 * np.pi * c * sites + phi)
-    return sum(Szs * field)
-
-
-def full_hamiltonian(N, h, c, phi, J1=1, J2=1, I=1, mode='open'):
-    """Generates the entire hamiltonian
-
-    Args: "N" the number of sites
-          "h" disorder strength
-          "c" transcendental number that finds itself popping up in the field
-          "phi" phase
-          "J1" interaction constant between nearest neighbors
-          "J2" interation constant between adjacent sites across legs
-          "I" number of legs
-    Returns: csc_matrix
-    """
-    neighbor_terms = nearest_neighbor_interation(N, I, mode)
-    inter_leg_terms = inter_chain_interation(N, I, mode)
-    field_contribution = field_terms(N, h, c, phi, I)
-    return J1 * neighbor_terms + J2 * inter_leg_terms + field_contribution
+    # Total
+    H = inter_terms + field_terms
+    return H.real
