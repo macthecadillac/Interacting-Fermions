@@ -82,9 +82,13 @@ def H(N, W1, c1, phi1, J1=1, W2=0, c2=0, phi2=0, J2=0, nleg=1, mode='open'):
     else:
         # if open BC, skip indices that are at the start of a column
         js = range(1, l2)
-    inter_terms2 = J2 * sum(full_S[i][col * l2: col * l2 + l2][j - 1] *
-                            full_S[i][col * l2: col * l2 + l2][j]
-                            for j in js for col in range(l1) for i in range(3))
+    # "vert_os" is the offset -- "distance" in our indices between
+    #  adjacent sites along the same rung. It is in general the number
+    #  of legs of the lattice.
+    inter_terms2 = J2 * sum(full_S[i][vert_os: vert_os + l2][j - 1] *
+                            full_S[i][vert_os: vert_os + l2][j]
+                            for j in js for vert_os in range(0, N, l2)
+                            for i in range(3))
 
     inter_terms = inter_terms1 + inter_terms2
 
