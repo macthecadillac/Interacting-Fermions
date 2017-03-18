@@ -75,7 +75,7 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
                 # Column wise operation. Otherwise the code is identical with
                 #  above
                 cols = map(list, zip_longest(*[iter(st_config)] * l2))
-                pair = chain(*list(map(lambda x: [x[-1]] + x[:-1], cols)))
+                pair = chain(*map(lambda x: [x[-1]] + x[:-1], cols))
                 y_interaction = sum(map(lambda x, y: x * y, st_config, pair))
             else:
                 non_ledge_sites = [i for n, i in enumerate(st_config)
