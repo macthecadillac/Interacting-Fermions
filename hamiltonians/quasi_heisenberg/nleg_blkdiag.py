@@ -34,28 +34,46 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
     @s.utils.io.cache_ram
     # this function doesn't use "curr_j", "J1", "J2" and "nleg" per se,
     # however, the inclusion of it in the arguments helps the caching function
-    # identifying the data
+    #  identifying the data
     def interaction(N, J1, J2, nleg, curr_j, mode):
         diagonal = np.zeros(mat_dim)
         for i, st_config in enumerate(basis_set):
             # convert state configuration from {0, 1} to {-1, 1}
             st_config = [conv[s] for s in st_config]
             # Interaction contributions. The conversion of 0's to -1's is
-            # warranted by the use of multiplication here.  A basis state of
-            # [1, 1, -1, -1] in <Sz_i Sz_(i+1)> would yield 1/4 - 1/4 + 1/4 -
-            # 1/4 = 0. We can achieve the same effect here if we take 1/4 *
-            # [1, 1, -1, -1] * [-1, 1, 1, -1], the last two terms being the
-            # current state multiplied by its shifted self element wise. The
-            # results are then summed.
+            #  warranted by the use of multiplication here.
             # --- along horizontal ---
             if mode == 'periodic' and not l1 == 2:
+                # A basis state of [1, 1, -1, -1] in <Sz_i Sz_(i+1)> would
+                #  yield 1/4 - 1/4 + 1/4 - 1/4 = 0. We can achieve the same
+                #  effect here if we take 1/4 * [1, 1, -1, -1] * [-1, 1, 1, -1],
+                #  the first list being the current state configuration, and
+                #  the second list is the first shifted to the right by one
+                #  element. The results are then summed.
                 x_interaction = sum(map(lambda x, y: x * y, st_config,
                                         st_config[-l2:] + st_config[:-l2]))
             else:
+                # For open boundary conditions, we shift as in the periodic
+                #  case but we remove the first "nleg" elements from the
+                #  original list and the last "nleg" of the shifted list
+                #  before we do what we did above. We are removing elements
+                #  because those elements, when multuplied and summed, give
+                #  extra contribution that is only justified in periodic BC.
                 x_interaction = sum(map(lambda x, y: x * y,
                                         st_config[l2:], st_config[:-l2]))
             # --- along vertical ---
+            #  The algorithm is the same as the horizontal case. The
+            #  complications in implementation comes from our labeling system
+            #  for the lattice which is unavoidable one way or another. In the
+            #  horizontal case, we did not have to take into account the rows
+            #  since shifting the indices by one repeatedly always gives
+            #  coupling along the same row. In the vertical case, however, we
+            #  must account for the columns since now there is a possibility of
+            #  unphysical couplings such as that between a site at the bottom
+            #  of one column with a site at the top of the column to the right.
             if mode == 'periodic' and not l2 == 2:
+                # Column wise operation. Otherwise the code is identical with
+                #  above
                 cols = map(list, zip_longest(*[iter(st_config)] * l2))
                 pair = chain(*list(map(lambda x: [x[-1]] + x[:-1], cols)))
                 y_interaction = sum(map(lambda x, y: x * y, st_config, pair))
@@ -82,6 +100,7 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
         field2 = np.zeros([1])
     else:
         field2 = W2 * np.cos(2 * np.pi * c2 * sites_2 + phi2)
+    # meshing the two directional contributions and flattening into a 1D array
     field = field1.repeat(l2) + field2.repeat(l1).reshape(l2, l1).T.flatten()
 
     basis_set = s.half.generate_complete_basis(N, curr_j)[0]
@@ -156,7 +175,10 @@ def off_diagonals(N, J1, J2, nleg, curr_j, mode):
                 #  element wise with each taken the absolute value would yield
                 #  2.
                 if sum(map(lambda x, y: abs(x - y), bi, bj)) == 2:
+                    # location in the tensor product Hilbert space
                     j_loc = hilbert_dim - s.utils.misc.bin_to_dec(bj) - 1
+                    # location in the block-diagonal, single-spin Hilbert
+                    #  space
                     j = G['complete_basis'][N][curr_j][1][j_loc]
                     col_ind.append(j)
                     row_ind.append(i)
