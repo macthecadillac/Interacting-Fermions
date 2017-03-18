@@ -103,8 +103,8 @@ class TestCrossexamineNLegH2D(unittest.TestCase):
 
     def test_N12_W0_csqrt2_phi1_3_4leg_periodic(self):
         N, W1, c1, phi1 = 12, 0, np.sqrt(2), 1
-        H1 = nleg_blkdiag.H(N, W1, c1, phi1, nleg=4, mode='periodic').toarray()
-        H2 = nleg.H(N, W1, c1, phi1, nleg=4, mode='periodic').toarray()
+        H1 = nleg_blkdiag.H(N, W1, c1, phi1, nleg=3, mode='periodic').toarray()
+        H2 = nleg.H(N, W1, c1, phi1, nleg=3, mode='periodic').toarray()
         E1 = np.linalg.eigvalsh(H1)
         E2 = np.linalg.eigvalsh(H2)
         for E in E1:
