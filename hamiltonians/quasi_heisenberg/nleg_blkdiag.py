@@ -2,7 +2,6 @@
 diagonal form.
 
 3-18-2017
-NOT YET USABLE
 """
 
 import spinsys as s
@@ -32,14 +31,13 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
 
     # cache to ram since the interaction contribution stays the same
     #  across configurations
-    # @s.utils.io.cache_ram
+    @s.utils.io.cache_ram
     # this function doesn't use "curr_j", "J1", "J2" and "nleg" per se,
     # however, the inclusion of it in the arguments helps the caching function
     # identifying the data
     def interaction(N, J1, J2, nleg, curr_j, mode):
         diagonal = np.zeros(mat_dim)
         for i, st_config in enumerate(basis_set):
-            # TODO PROBLEM IS HERE
             # convert state configuration from {0, 1} to {-1, 1}
             st_config = [conv[s] for s in st_config]
             # Interaction contributions. The conversion of 0's to -1's is
@@ -57,7 +55,7 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
                 x_interaction = sum(map(lambda x, y: x * y,
                                         st_config[l2:], st_config[:-l2]))
             # --- along vertical ---
-            if mode == 'peiodic' and not l2 == 2:
+            if mode == 'periodic' and not l2 == 2:
                 cols = map(list, zip_longest(*[iter(st_config)] * l2))
                 pair = chain(*list(map(lambda x: [x[-1]] + x[:-1], cols)))
                 y_interaction = sum(map(lambda x, y: x * y, st_config, pair))
@@ -102,8 +100,8 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
     return ss.csc_matrix((diagonal, (ind, ind)), shape=[mat_dim, mat_dim])
 
 
-# @s.utils.io.cache_ram
-# @s.utils.io.matcache
+@s.utils.io.cache_ram
+@s.utils.io.matcache
 def off_diagonals(N, J1, J2, nleg, curr_j, mode):
     """Generate the off diagonal elements of the hamiltonian.
 
