@@ -41,9 +41,9 @@ be put somewhere else to keep the library/repository clean and well-organized.
     spinsys.half.generate_complete_basis
     spinsys.half.full_matrix
     spinsys.half.expand_and_reorder
-    spinsys.half.similarity_trans_matrix
+    spinsys.half.bipartite_reduced_density_op
+    spinsys.half.block_diagonalization_transformation
     spinsys.quantities.adj_gap_ratio
-    spinsys.quantities.bipartite_reduced_density_op
     spinsys.quantities.spin_glass_order
     spinsys.quantities.von_neumann_entropy
     spinsys.state_generators.generate_eigenpairs
@@ -51,7 +51,6 @@ be put somewhere else to keep the library/repository clean and well-organized.
     spinsys.utils.io.cache
     spinsys.utils.io.matcache
     spinsys.utils.io.cache_ram
-    spinsys.utils.log.logged
     spinsys.utils.misc.bin_to_dec
     spinsys.utils.misc.permutation
     spinsys.utils.misc.binary_permutation
