@@ -8,7 +8,7 @@ import numpy as np
 import scipy as sp
 import spinsys
 from spinsys.utils.globalvar import Globals as G
-from spinsys.exceptions import SizeMismatchError
+from spinsys.half import bipartite_reduced_density_op
 
 
 def adj_gap_ratio(sorted_eigvals):
@@ -22,24 +22,6 @@ def adj_gap_ratio(sorted_eigvals):
     agrs = [min(deltas[i], deltas[i + 1]) / max(deltas[i], deltas[i + 1])
             for i in range(len(deltas) - 1)]
     return np.array(agrs)
-
-
-def bipartite_reduced_density_op(N, state):
-    """
-    Creates the density matrix using a state. Useful for calculating
-    bipartite entropy
-
-    Args: "state" a column vector that has to be dense (numpy.array)
-          "N" total system size
-    Returns: Numpy array
-    """
-    dim = 2 ** (N // 2)            # Dimensions of the reduced density matrices
-    if not max(state.shape) == dim ** 2:
-        error_msg = 'Did you forget to expand the state into the full' + \
-            'Hilbert space?'
-        raise SizeMismatchError(error_msg)
-    reshaped_state = np.reshape(state, [dim, dim])
-    return np.dot(reshaped_state, reshaped_state.conjugate().transpose())
 
 
 def von_neumann_entropy(N, state, base='e'):
