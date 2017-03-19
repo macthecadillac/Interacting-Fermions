@@ -12,6 +12,7 @@ import numpy as np
 import scipy as sp
 from spinsys import utils
 from spinsys.utils.globalvar import Globals as G
+from spinsys.exceptions import SizeMismatchError
 
 
 def generate_complete_basis(N, current_j):
@@ -100,7 +101,25 @@ def expand_and_reorder(N, psi_diag, current_j=0):
     return psi_ord
 
 
-def similarity_trans_matrix(N):
+def bipartite_reduced_density_op(N, state):
+    """
+    Creates the density matrix using a state. Useful for calculating
+    bipartite entropy
+
+    Args: "state" a column vector that has to be dense (numpy.array)
+          "N" total system size
+    Returns: Numpy array
+    """
+    dim = 2 ** (N // 2)            # Dimensions of the reduced density matrices
+    if not max(state.shape) == dim ** 2:
+        error_msg = 'Did you forget to expand the state into the full' + \
+            'Hilbert space?'
+        raise SizeMismatchError(error_msg)
+    reshaped_state = np.reshape(state, [dim, dim])
+    return np.dot(reshaped_state, reshaped_state.conjugate().transpose())
+
+
+def block_diagonalization_transformation(N):
     """
     Returns a matrix U such that Uv = v' with v in the tensor product
     basis arrangement and v' in the spin block basis arrangement.
