@@ -34,11 +34,13 @@ def generate_eigenpairs(N, H, num_psi, expand=True):
     return eigs, psis
 
 
-def generate_product_state(H, tol=1e-6):
-    """Generates a product state with an energy density close to 0.5.
-    The state will be returned in whatever basis H is in.
+def generate_product_state(H, enden=0.5, tol=1e-6):
+    """Generates a product state with an energy density close to the
+    specified value.  The state will be returned in whatever basis H
+    is in.
 
     Args: "H" Hamiltonian of the system in block diagonal form.
+          "enden" energy density
           "tol" tolerance. It is highly unlikely to find a product state
             with energy density exactly equal to 0.5. This sets the
             tolerable range from 0.5
@@ -57,7 +59,7 @@ def generate_product_state(H, tol=1e-6):
     #  always return diagonal elements
     energy_expvals = H.diagonal()
     for i, E_exp in enumerate(energy_expvals):
-        if abs(energy_density(E_exp, Emin, Emax) - 0.5) < tol:
+        if abs(energy_density(E_exp, Emin, Emax) - enden) < tol:
             break
     else:
         raise StateNotFoundError
