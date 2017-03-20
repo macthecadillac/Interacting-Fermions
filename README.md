@@ -14,14 +14,7 @@ version on your system. Once that is done, the library is available system-wide
 (for your user) and you can import it the usual way.
 
 # Usage
-The library can be imported with
-```python
-import spinsys
-```
-It is preferable that modules within the spinsys folder be left unmodified unless the
-function written is general enough to be sorted into one of the
-sub-modules/sub-folders. Temporary scripts for plotting and simulation should
-be put somewhere else to keep the library/repository clean and well-organized.
+Please refer to the docstrings of individual functions and classes.
 
 # Included in the package:
 ## Hamiltonians
@@ -42,6 +35,7 @@ be put somewhere else to keep the library/repository clean and well-organized.
     spinsys.half.full_matrix
     spinsys.half.expand_and_reorder
     spinsys.half.bipartite_reduced_density_op
+    spinsys.half.reduced_density_op
     spinsys.half.block_diagonalization_transformation
     spinsys.quantities.adj_gap_ratio
     spinsys.quantities.spin_glass_order
