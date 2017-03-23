@@ -56,3 +56,7 @@ Please refer to the docstrings of individual functions and classes.
     spinsys.exceptions.StateNotFoundError
     spinsys.time_dependent.TimeMachine
     spinsys.utils.timer.Timer
+
+# License
+All code in this repository is released under the BSD 3-clause license. For
+details please refer to LICENSE.txt.
