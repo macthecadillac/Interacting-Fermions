@@ -1,4 +1,12 @@
-"""Provides functions that generate the hamiltonian. Open or
+"""
+This file is part of spinsys.
+
+Spinsys is free software: you can redistribute it and/or modify
+it under the terms of the BSD 3-clause license. See LICENSE.txt
+for exact terms and conditions.
+
+
+Provides functions that generate the hamiltonian. Open or
 periodic boundary conditions.
 
 3-15-2017

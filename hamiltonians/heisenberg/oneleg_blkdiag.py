@@ -1,4 +1,12 @@
-"""Provides functions to generate the one-legged hamiltonian.
+"""
+This file is part of spinsys.
+
+Spinsys is free software: you can redistribute it and/or modify
+it under the terms of the BSD 3-clause license. See LICENSE.txt
+for exact terms and conditions.
+
+
+Provides functions to generate the one-legged hamiltonian.
 
 3-15-2017
 """

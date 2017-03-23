@@ -1,4 +1,12 @@
-"""This module provides functions working on half-spin systems.
+"""
+This file is part of spinsys.
+
+Spinsys is free software: you can redistribute it and/or modify
+it under the terms of the BSD 3-clause license. See LICENSE.txt
+for exact terms and conditions.
+
+
+This module provides functions working on half-spin systems.
 Functions included:
     create_complete_basis
     full_matrix

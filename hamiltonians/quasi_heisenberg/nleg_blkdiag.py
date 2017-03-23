@@ -1,4 +1,12 @@
-"""Provides functions to generate the n-legged hamiltonian in the block
+"""
+This file is part of spinsys.
+
+Spinsys is free software: you can redistribute it and/or modify
+it under the terms of the BSD 3-clause license. See LICENSE.txt
+for exact terms and conditions.
+
+
+Provides functions to generate the n-legged hamiltonian in the block
 diagonal form.
 
 3-18-2017

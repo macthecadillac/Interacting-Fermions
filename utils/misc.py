@@ -1,4 +1,12 @@
-"""This module provides tools that are useful but not, strictly
+"""
+This file is part of spinsys.
+
+Spinsys is free software: you can redistribute it and/or modify
+it under the terms of the BSD 3-clause license. See LICENSE.txt
+for exact terms and conditions.
+
+
+This module provides tools that are useful but not, strictly
 speaking, related to quantum mechanics. Function included:
     bin_to_dec
     permutation

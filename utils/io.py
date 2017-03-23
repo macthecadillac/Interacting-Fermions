@@ -1,4 +1,12 @@
-"""This module provides facilities with regard to caching results to
+"""
+This file is part of spinsys.
+
+Spinsys is free software: you can redistribute it and/or modify
+it under the terms of the BSD 3-clause license. See LICENSE.txt
+for exact terms and conditions.
+
+
+This module provides facilities with regard to caching results to
 disk. These functions are meant to speed up functions when no better
 ways are available. Functions included:
     cache

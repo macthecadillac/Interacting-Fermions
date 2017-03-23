@@ -1,4 +1,12 @@
-"""The constructors module provides commonly used constructors for
+"""
+This file is part of spinsys.
+
+Spinsys is free software: you can redistribute it and/or modify
+it under the terms of the BSD 3-clause license. See LICENSE.txt
+for exact terms and conditions.
+
+
+The constructors module provides commonly used constructors for
 quantum computation. Constructors provided in this module:
     raising
     lowering
