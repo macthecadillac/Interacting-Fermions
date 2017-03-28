@@ -1,5 +1,5 @@
 # Dependencies
-The following packages will need to be installed: numpy, scipy, msgpack-python 
+This library depends on numpy and scipy.
 
 # Installation
 Copy and paste the following in the terminal
@@ -42,7 +42,6 @@ Please refer to the docstrings of individual functions and classes.
     spinsys.quantities.von_neumann_entropy
     spinsys.state_generators.generate_eigenpairs
     spinsys.state_generators.generate_product_state
-    spinsys.utils.io.cache
     spinsys.utils.io.matcache
     spinsys.utils.io.cache_ram
     spinsys.utils.misc.bin_to_dec
