@@ -17,36 +17,20 @@ ways are available. Functions included:
 
 import os
 from . import globalvar
-from scipy import io
+import numpy as np
+import scipy.sparse as ss
 import functools
 import tempfile
-import msgpack
-
-
-def cache(function):
-    """Generic caching wrapper. Should work on any kind of I/O"""
-    @functools.wraps(function)
-    def wrapper(*args, **kargs):
-        # for cross platform compatibility
-        tmpdir = tempfile.gettempdir()
-        cachedir = os.path.join(tmpdir, 'spinsys')
-        cachefile = os.path.join(tmpdir, 'spinsys', '{}{}'
-                                 .format(function.__name__, (args, kargs)))
-        if not os.path.isdir(cachedir):
-            os.mkdir(cachedir)
-        try:
-            with open(cachefile, 'rb') as c:
-                return msgpack.load(c)
-        except FileNotFoundError:
-            result = function(*args, **kargs)
-            with open(cachefile, 'wb') as c:
-                msgpack.dump(result, c)
-            return result
-    return wrapper
 
 
 def matcache(function):
-    """Caching wrapper for sparse matrix generating functions."""
+    """Caching wrapper for sparse matrix generating functions.
+    Only works if the matrix in question is a
+    1. numpy ndarray
+    2. scipy CSC matrix or CSR matrix or BSR matrix
+    When reading from cache, only numpy ndarrays and scipy CSC matrices
+    are returned.
+    """
     @functools.wraps(function)
     def wrapper(*args, **kargs):
         tmpdir = tempfile.gettempdir()
@@ -56,11 +40,27 @@ def matcache(function):
         if not os.path.isdir(cachedir):
             os.mkdir(cachedir)
         try:
-            return io.loadmat(cachefile)['i']
+            return np.load(cachefile + '.npy')
         except FileNotFoundError:
-            result = function(*args, **kargs)
-            io.savemat(cachefile, {'i': result}, appendmat=False)
-            return result
+            try:    # try loading a sparse matrix
+                data = np.load(cachefile + '.data.npy')
+                indices = np.load(cachefile + '.indices.npy')
+                indptr = np.load(cachefile + '.indptr.npy')
+                return ss.csc_matrix((data, indices, indptr))
+            except FileNotFoundError:
+                result = function(*args, **kargs)
+                try:
+                    # This will fail if the matrix is a scipy sparse matrix
+                    np.save(cachefile, result, allow_pickle=False)
+                except ValueError:
+                    # For CSC and CSR matrices specifically
+                    np.save(cachefile + '.data.npy', result.data,
+                            allow_pickle=False)
+                    np.save(cachefile + '.indices.npy', result.indices,
+                            allow_pickle=False)
+                    np.save(cachefile + '.indptr.npy', result.indptr,
+                            allow_pickle=False)
+                return result
     return wrapper
 
 
