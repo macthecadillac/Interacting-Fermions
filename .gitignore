@@ -1,0 +1,9 @@
+/.env
+/tags
+/update_tags
+/.swm
+/.swn
+/.swo
+/.swp
+**/.directory
+**/*.pyc
