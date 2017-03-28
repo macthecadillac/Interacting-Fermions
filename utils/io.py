@@ -41,7 +41,7 @@ def matcache(function):
             os.mkdir(cachedir)
         try:
             return np.load(cachefile + '.npy')
-        except FileNotFoundError:
+        except (FileNotFoundError, EOFError):
             try:    # try loading a sparse matrix
                 data = np.load(cachefile + '.data.npy')
                 indices = np.load(cachefile + '.indices.npy')
