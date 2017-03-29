@@ -12,14 +12,12 @@ Functions included:
     full_matrix
     reorder_basis
     similarity_trans_matrix
-
-1-16-2017
 """
 
 import numpy as np
 import scipy as sp
 from spinsys import utils
-from spinsys.utils.globalvar import Globals as G
+from spinsys.utils.cache import Globals as G
 from spinsys.exceptions import SizeMismatchError
 from itertools import chain
 
@@ -142,7 +140,7 @@ def reduced_density_op(N, sysA, state, curr_j=0):
     # TODO: Partially working. Passed 2-leg bipartite configurations in both
     #  directions. Discrepencies found in configurations involving more than
     #  two legs.
-    # @utils.io.cache_ram
+    # @utils.cache.cache_ram
     def reorder_basis_dict(N, sysA, curr_j):
         A_len = len(sysA)
         B_len = N - A_len

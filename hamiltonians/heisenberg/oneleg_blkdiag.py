@@ -7,12 +7,10 @@ for exact terms and conditions.
 
 
 Provides functions to generate the one-legged hamiltonian.
-
-3-15-2017
 """
 
 import spinsys as s
-from spinsys.utils.globalvar import Globals as G
+from spinsys.utils.cache import Globals as G
 import numpy as np
 import scipy.sparse as ss
 import functools
@@ -52,7 +50,7 @@ def diagonals(N, J, curr_j, mode):
 
 
 @functools.lru_cache(maxsize=None)
-@s.utils.io.matcache
+@s.utils.cache.matcache
 def off_diagonals(N, J, curr_j, mode):
     """Generates the off-diagonal elements of the hamiltonian.
 

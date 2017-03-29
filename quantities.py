@@ -8,14 +8,12 @@ for exact terms and conditions.
 
 This module provides functions that calculate certain quantities of
 the spin system.
-
-1-15-2017
 """
 
 import numpy as np
 import scipy as sp
 import spinsys
-from spinsys.utils.globalvar import Globals as G
+from spinsys.utils.cache import Globals as G
 from spinsys.half import bipartite_reduced_density_op
 
 
@@ -64,7 +62,7 @@ def half_chain_spin_dispersion(N, psi, curr_j=0):
           "psi" a vector. Must be 1D numpy array.
     Return: float
     """
-    @spinsys.utils.io.cache_ram
+    @spinsys.utils.cache.cache_ram
     def first_half_chain_Sz_op_diagonal(N, curr_j):
         """Returns the diagonal of the half chain Sz operator.
         (First half of the chain)
@@ -96,7 +94,7 @@ def spin_glass_order(N, psi):
           "psi" a given state.
     Returns: float
     """
-    @spinsys.utils.io.cache_ram
+    @spinsys.utils.cache.cache_ram
     def full_spin_operators(N):
         """Generate full spin operators for every site in the block
         diagonal basis for the <Sz>=0 subspace

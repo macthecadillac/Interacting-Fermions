@@ -8,14 +8,12 @@ for exact terms and conditions.
 
 This module provides functions to generate a N-legged hamiltonian
 using tensor products
-
-3-16-2017
 """
 
 import numpy as np
 from spinsys import half
 from spinsys import constructors as c
-from spinsys.utils.globalvar import Globals as G
+from spinsys.utils.cache import Globals as G
 
 
 def H(N, W1, c1, phi1, J1=1, W2=0, c2=0, phi2=0, J2=0, nleg=1, mode='open'):

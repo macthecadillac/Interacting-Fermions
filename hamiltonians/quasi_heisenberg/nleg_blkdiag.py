@@ -8,12 +8,10 @@ for exact terms and conditions.
 
 Provides functions to generate the n-legged hamiltonian in the block
 diagonal form.
-
-3-18-2017
 """
 
 import spinsys as s
-from spinsys.utils.globalvar import Globals as G
+from spinsys.utils.cache import Globals as G
 import scipy.sparse as ss
 import numpy as np
 from itertools import zip_longest, chain
@@ -129,7 +127,7 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
 
 
 @functools.lru_cache(maxsize=None)
-@s.utils.io.matcache
+@s.utils.cache.matcache
 def off_diagonals(N, J1, J2, nleg, curr_j, mode):
     """Generate the off diagonal elements of the hamiltonian.
 

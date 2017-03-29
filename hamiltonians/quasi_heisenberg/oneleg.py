@@ -8,12 +8,10 @@ for exact terms and conditions.
 
 Provides functions that generate the hamiltonian. Open or
 periodic boundary conditions.
-
-3-15-2017
 """
 
 import numpy as np
-from spinsys.utils.globalvar import Globals as G
+from spinsys.utils.cache import Globals as G
 import spinsys.constructors as cn
 from spinsys import half
 
