@@ -17,6 +17,7 @@ from spinsys.utils.globalvar import Globals as G
 import scipy.sparse as ss
 import numpy as np
 from itertools import zip_longest, chain
+import functools
 
 
 def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
@@ -39,7 +40,7 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
 
     # cache to ram since the interaction contribution stays the same
     #  across configurations
-    @s.utils.io.cache_ram
+    @functools.lru_cache(maxsize=None)
     # this function doesn't use "curr_j", "J1", "J2" and "nleg" per se,
     # however, the inclusion of it in the arguments helps the caching function
     #  identifying the data
@@ -127,7 +128,7 @@ def diagonals(N, W1, c1, phi1, J1, W2, c2, phi2, J2, nleg, curr_j, mode):
     return ss.csc_matrix((diagonal, (ind, ind)), shape=[mat_dim, mat_dim])
 
 
-@s.utils.io.cache_ram
+@functools.lru_cache(maxsize=None)
 @s.utils.io.matcache
 def off_diagonals(N, J1, J2, nleg, curr_j, mode):
     """Generate the off diagonal elements of the hamiltonian.
