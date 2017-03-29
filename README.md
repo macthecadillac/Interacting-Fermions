@@ -42,8 +42,7 @@ Please refer to the docstrings of individual functions and classes.
     spinsys.quantities.von_neumann_entropy
     spinsys.state_generators.generate_eigenpairs
     spinsys.state_generators.generate_product_state
-    spinsys.utils.io.matcache
-    spinsys.utils.io.cache_ram
+    spinsys.utils.cache.matcache
     spinsys.utils.misc.bin_to_dec
     spinsys.utils.misc.permutation
     spinsys.utils.misc.binary_permutation
