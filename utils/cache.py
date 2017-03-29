@@ -6,21 +6,22 @@ it under the terms of the BSD 3-clause license. See LICENSE.txt
 for exact terms and conditions.
 
 
-This module provides facilities with regard to caching results to
-disk. These functions are meant to speed up functions when no better
-ways are available. Functions included:
-    cache
-    matcache
+This module provides a dictionary to store data that is cumbersome
+to be passed around through function calls but at the same time should
+only be computed once. The dictionary could hold the data for as long
+as it is required.
 
-1-14-2017
+3-29-2017
 """
 
 import os
-from . import globalvar
 import numpy as np
 import scipy.sparse as ss
 import functools
 import tempfile
+
+
+Globals = {}
 
 
 def matcache(function):
@@ -61,18 +62,4 @@ def matcache(function):
                     np.save(cachefile + '.indptr.npy', result.indptr,
                             allow_pickle=False)
                 return result
-    return wrapper
-
-
-def cache_ram(function):
-    """Wrapper for caching results into the Globals dictionary"""
-    @functools.wraps(function)
-    def wrapper(*args, **kargs):
-        dict_key = '{}{}'.format(function.__name__, (args, kargs))
-        try:
-            result = globalvar.Globals[dict_key]
-        except KeyError:
-            result = function(*args, **kargs)
-            globalvar.Globals[dict_key] = result
-        return result
     return wrapper
