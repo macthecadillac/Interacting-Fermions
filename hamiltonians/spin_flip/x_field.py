@@ -45,4 +45,4 @@ def flip_Sz(N, g=np.pi/2, eps=0):
         full_Sx = [half.full_matrix(Sx, k, N) for k in range(N)]
         G['full_Sx'][N] = full_Sx
     flip_Sz = (g-eps) * sum(2 * full_Sx)
-    return flip_Sz
+    return flip_Sz.real
