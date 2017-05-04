@@ -4,7 +4,7 @@ This library depends on numpy and scipy.
 # Installation
 Copy and paste the following in the terminal
 ```shell
-git clone https://github.com/1119group/spinsys.git
+git clone https://github.com/macthecadillac/spinsys.git
 ```
 You will now find the folder in your home directory. To make the library available 
 in the prompt, link the folder to the local Python path. On Linux, the folder
