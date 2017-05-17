@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+import subprocess
+import sys
+import csv
+
+
+def copy_scripts(node, source, dest):
+    login = user + '@' + node
+    destination = login + ':{}'.format(dest)
+    scp = subprocess.Popen(['scp', source, destination],
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    scp.wait()
+
+
+def launch_job(node, cmd):
+    login = user + '@' + node
+    ssh = subprocess.Popen(['ssh', '-f', login, 'nohup {}'.format(cmd)],
+                           shell=False,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    return ssh
+
+
+joblist = sys.argv[1]
+user = sys.argv[2]
+dest = sys.argv[3]
+
+
+with open(joblist) as csvfile:
+    reader = csv.DictReader(csvfile)
+    for job in reader:
+        copy_scripts(job['node'], job['run_script'], dest)
+        launch_job(job['node'], dest + job['run_script]'])
