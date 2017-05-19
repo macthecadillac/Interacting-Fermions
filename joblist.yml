@@ -1,0 +1,14 @@
+# Example configuration. Top level should be the nodes a certain job is
+# to be launched on. In the next leve, specify fields "exe" and "dir"
+user: mac
+globaldir: ~/Data
+nodes:
+    node60:
+        exe: ./run60.py
+    node61:
+        exe: ./run61.py
+    node62:
+        exe: ./run62.py
+    node63:
+        exe: ./run63.py
+        dir: ~/Some_other_dir

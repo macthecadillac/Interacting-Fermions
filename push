@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import subprocess
 import sys
-import csv
+import yaml
 
 
 def copy_scripts(node, source, dest):
@@ -22,13 +22,19 @@ def launch_job(node, cmd):
     return ssh
 
 
-joblist = sys.argv[1]
-user = sys.argv[2]
-dest = sys.argv[3]
+def load_config_file():
+    with open(joblist) as yamlfile:
+        job_dict = yaml.load(yamlfile)
+    user = job_dict['user']
+    try:
+        globaldir = job_dict['globaldir']
+    except KeyError:
+        globaldir = None
+    nodes = job_dict['nodes']
+    for node in nodes.keys():
+        copy_scripts(node, node['exe'], globaldir)
+        launch_job(node)
 
 
-with open(joblist) as csvfile:
-    reader = csv.DictReader(csvfile)
-    for job in reader:
-        copy_scripts(job['node'], job['run_script'], dest)
-        launch_job(job['node'], dest + job['run_script]'])
+if __name__ == '__main__':
+    joblist = sys.argv[1]
