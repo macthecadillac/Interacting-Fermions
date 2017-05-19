@@ -4,37 +4,40 @@ import sys
 import yaml
 
 
-def copy_scripts(node, source, dest):
-    login = user + '@' + node
-    destination = login + ':{}'.format(dest)
-    scp = subprocess.Popen(['scp', source, destination],
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
-    scp.wait()
+class Dispatcher:
 
+    def __init__(self, joblist):
+        with open(joblist) as yamlfile:
+            job_dict = yaml.load(yamlfile)
+        self.user = job_dict['user']
+        try:
+            globaldir = job_dict['globaldir']
+        except KeyError:
+            globaldir = None
+        self.nodes = job_dict['nodes']
+        for node in self.nodes.keys():
+            self.copy_scripts(node, node['exe'], globaldir)
+            self.launch_job(node)
 
-def launch_job(node, cmd):
-    login = user + '@' + node
-    ssh = subprocess.Popen(['ssh', '-f', login, 'nohup {}'.format(cmd)],
-                           shell=False,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
-    return ssh
+    def copy_scripts(self, node, source, dest):
+        login = self.user + '@' + node
+        destination = login + ':{}'.format(dest)
+        scp = subprocess.Popen(['scp', source, destination],
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+        scp.wait()
 
-
-def load_config_file():
-    with open(joblist) as yamlfile:
-        job_dict = yaml.load(yamlfile)
-    user = job_dict['user']
-    try:
-        globaldir = job_dict['globaldir']
-    except KeyError:
-        globaldir = None
-    nodes = job_dict['nodes']
-    for node in nodes.keys():
-        copy_scripts(node, node['exe'], globaldir)
-        launch_job(node)
+    def launch_job(self, node, cmd):
+        login = self.user + '@' + node
+        ssh = subprocess.Popen(['ssh', '-f', login, 'nohup {}'.format(cmd)],
+                               shell=False,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+        return ssh
 
 
 if __name__ == '__main__':
     joblist = sys.argv[1]
+    dispatcher = Dispatcher(joblist)
+    dispatcher.copy_scripts()
+    dispatcher.launch_job()
