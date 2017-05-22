@@ -37,13 +37,13 @@ class Dispatcher:
                                stderr=subprocess.PIPE)
         return ssh
 
-    @classmethod
-    def dispatch(cls):
-        for node, attributes in cls.nodes.items():
-            cls.copy_scripts(node, attributes['exe'], cls.globaldir)
-            cls.launch_job_to_node(node, attributes['exe'])
+    def dispatch(self):
+        for node, attributes in self.nodes.items():
+            self.copy_scripts(node, attributes['exe'], self.globaldir)
+            self.launch_job_to_node(node, attributes['exe'])
 
 
 if __name__ == '__main__':
     joblist = sys.argv[1]
-    Dispatcher(joblist).dispatch()
+    dispatcher = Dispatcher(joblist)
+    dispatcher.dispatch()
