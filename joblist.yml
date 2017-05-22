@@ -1,6 +1,6 @@
 # Example configuration. Top level should be the nodes a certain job is
 # to be launched on. In the next leve, specify fields "exe" and "dir"
-user: mac
+user: mac   # optional
 globaldir: ~/Data
 nodes:
     node60:
