@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+import getpass
+import os
+import subprocess
+import sys
+import yaml
+
+
+class Sync:
+
+    def __init__(self, nodes_rawinput, source, dest):
+        self.source = source
+        self.dest = dest
+        self.procs = []
+        start_node, end_node = nodes_rawinput.split(sep='..')
+        self.nodes = map(lambda x: 'node' + str(x),
+                         range(int(start_node), int(end_node) + 1))
+        self.username = getpass.getuser()
+
+    def to_node(self, node):
+        destination = '{}@{}:{}'.format(self.username, node, self.dest)
+        rsync = subprocess.Popen(['rsync', '-raqpzHogt', self.source, destination],
+                                 stderr=subprocess.PIPE)
+        return rsync
+
+    def batch_sync(self):
+        for node in self.nodes:
+            self.procs.append((node, self.to_node(node)))
+        for node, proc in self.procs:
+            returncode = proc.wait()
+            if returncode is not 0:
+                print('An error has occured when pushing to {}:'.format(node))
+                print(proc.stderr.read().decode('utf8'), '\n')
+            else:
+                print('Sync has completed with {}'.format(node))
+
+
+if __name__ == '__main__':
+    nodes_rawinput = sys.argv[1]
+    source_dir = sys.argv[2]
+    try:
+        dest_dir = sys.argv[3]
+    except IndexError:
+        dest_dir = source_dir
+    sync = Sync(nodes_rawinput, source_dir, dest_dir)
+    sync.batch_sync()
