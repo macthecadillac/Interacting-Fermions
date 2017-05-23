@@ -50,7 +50,7 @@ class Sync:
                     .format(self.procs[pid]['node']))
                 print(self.procs[pid]['proc'].stderr.read().decode('utf8').strip(), '\n')
             else:
-                print('Sync with {} is completed'.format(self.procs[pid]['node']))
+                print('Sync with {} is complete'.format(self.procs[pid]['node']))
             self.procs.pop(pid)
             try:
                 self.spawn_next_proc()
