@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import datetime
 import getpass
 import subprocess
 import sys
@@ -18,29 +19,41 @@ class Dispatcher:
 
         try:
             self.globaldir = job_dict['globaldir']
+            if self.globaldir[-1] is not '/':
+                self.globaldir += '/'
         except KeyError:
             self.globaldir = None
         self.nodes = job_dict['nodes']
 
     def copy_scripts(self, node, source, dest):
         destination = '{0}@{1}:{2}'.format(self.user, node, dest)
+        login = '{0}@{1}'.format(self.user, node)
+        subprocess.Popen(['ssh', login, 'mkdir', '-p', dest]).wait()
         scp = subprocess.Popen(['scp', source, destination],
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
+        stdout = scp.stdout.read().decode('utf8')
+        stderr = scp.stderr.read().decode('utf8')
+        if len(stdout) is not 0:
+            print(stdout)
+        if len(stderr) is not 0:
+            print(stderr)
         scp.wait()
 
-    def launch_job_to_node(self, node, cmd):
+    def launch_job_to_node(self, node, binary):
         login = '{0}@{1}'.format(self.user, node)
-        ssh = subprocess.Popen(['ssh', '-f', login, 'nohup {}'.format(cmd)],
-                               shell=False,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-        return ssh
+        log_header = 'Term log ' + datetime.datetime.now().isoformat()
+        subprocess.Popen(['ssh', login, 'echo {} > {}.log'.format(log_header, binary)]).wait()
+        subprocess.Popen(['ssh', '-f', login, 'nohup {0} >> {0}.log &'.format(binary)],
+                         shell=False,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
 
     def dispatch(self):
         for node, attributes in self.nodes.items():
-            self.copy_scripts(node, attributes['exe'], self.globaldir)
-            self.launch_job_to_node(node, attributes['exe'])
+            executable = self.globaldir + attributes['exe']
+            self.copy_scripts(node, executable, self.globaldir)
+            self.launch_job_to_node(node, executable)
 
 
 if __name__ == '__main__':
