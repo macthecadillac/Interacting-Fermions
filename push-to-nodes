@@ -15,22 +15,14 @@ class Sync:
         self.procs = {}
         self.username = getpass.getuser()
         # Parse the input for node
-        if len(nodes_rawinput) is 1:
-            if '..' in nodes_rawinput[0]:
-                start_node, end_node = nodes_rawinput[0].split(sep='..')
-                self.nodes = map(lambda x: 'node' + str(x),
-                                range(int(start_node), int(end_node) + 1))
+        self.nodes = []
+        for opt in nodes_rawinput:
+            if re.match(r'[0-9]+[.]{2}[0-9]+', opt) is not None:
+                start_node, end_node = opt.split(sep='..')
+                self.nodes += list(map(lambda x: 'node' + str(x),
+                                range(int(start_node), int(end_node) + 1)))
             else:
-                self.nodes = ['node' + nodes_rawinput[0]]
-        else:
-            self.nodes = []
-            for obj in nodes_rawinput:
-                if re.match(r'[0-9]+[.]{2}[0-9]+', obj) is not None:
-                    start_node, end_node = obj.split(sep='..')
-                    self.nodes += list(map(lambda x: 'node' + str(x),
-                                       range(int(start_node), int(end_node) + 1)))
-                else:
-                    self.nodes.append('node' + obj)
+                self.nodes.append('node' + opt)
 
     def to_node(self, node):
         destination = '{}@{}:{}'.format(self.username, node, self.dest)
