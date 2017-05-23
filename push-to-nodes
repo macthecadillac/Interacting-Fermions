@@ -62,7 +62,7 @@ if __name__ == '__main__':
                         node10, type "1 4 10".
                         ''')
     parser.add_argument('-s', '--source', required=True,
-                        help='The source directory on the local machine')
+                        help='The source directory on the main node')
     parser.add_argument('-d', '--destination',
                         help='''
                         The destination directory on the remote machine. The
