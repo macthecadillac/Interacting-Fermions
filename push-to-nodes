@@ -9,11 +9,12 @@ import sys
 
 class Sync:
 
-    def __init__(self, nodes_rawinput, source, dest):
+    def __init__(self, nodes_rawinput, source, dest, nthreads):
+        self.username = getpass.getuser()
         self.source = source
         self.dest = dest
+        self.nthreads = nthreads
         self.procs = {}
-        self.username = getpass.getuser()
         # Parse the input for node
         self.nodes = []
         for opt in nodes_rawinput:
@@ -30,19 +31,31 @@ class Sync:
                                  stderr=subprocess.PIPE)
         return rsync
 
+    def spawn_next_proc(self):
+        node = self.nodes.pop()
+        proc = self.to_node(node)
+        self.procs[proc.pid] = {'node': node, 'proc': proc}
+
     def batch_sync(self):
-        for node in self.nodes:
-            proc = self.to_node(node)
-            self.procs[proc.pid] = {'node': node, 'proc': proc}
+        while len(self.procs) < self.nthreads:
+            try:
+                self.spawn_next_proc()
+            except IndexError:
+                break
+
         while self.procs:
             pid, exitstatus = os.wait()
             if exitstatus is not 0:
                 print('An error has occured when pushing to {}:'
-                      .format(self.procs[pid]['node']))
+                    .format(self.procs[pid]['node']))
                 print(self.procs[pid]['proc'].stderr.read().decode('utf8').strip(), '\n')
             else:
                 print('Sync with {} is completed'.format(self.procs[pid]['node']))
             self.procs.pop(pid)
+            try:
+                self.spawn_next_proc()
+            except IndexError:
+                continue
 
 
 if __name__ == '__main__':
@@ -65,13 +78,20 @@ if __name__ == '__main__':
                         help='The source directory on the main node')
     parser.add_argument('-d', '--destination',
                         help='''
-                        The destination directory on the remote machine. The
+                        The destination directory on the remote node. The
                         destination directory is assumed to be the same as the
                         source directory if this option is omitted.
+                        ''')
+    parser.add_argument('-t', '--threads', type=int,
+                        help='''
+                        The number of execution threads. By default this program
+                        spawns as many threads as the number of available
+                        processors.
                         ''')
     args = parser.parse_args()
     nodes_rawinput = args.nodes
     source_dir = args.source
     dest_dir = args.destination if args.destination is not None else source_dir
-    sync = Sync(nodes_rawinput, source_dir, dest_dir)
+    nthreads = args.threads if args.threads is not None else os.cpu_count()
+    sync = Sync(nodes_rawinput, source_dir, dest_dir, nthreads)
     sync.batch_sync()
