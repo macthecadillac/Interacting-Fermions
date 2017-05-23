@@ -48,11 +48,11 @@ class Sync:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='push-to-nodes',
                                      description='''
-                                     A utility program to send files to multiple
-                                     nodes with rsync. For this program to work
-                                     well, password-less login to the remote SSH
-                                     server(s) must have been already properly
-                                     set up.
+                                     A QSpin specific utility program to send
+                                     files to multiple nodes with rsync. For
+                                     this program to work well, password-less
+                                     login to the remote SSH server(s) must have
+                                     been already properly set up.
                                      ''')
     parser.add_argument('nodes', nargs='+',
                         help='''
