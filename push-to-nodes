@@ -20,7 +20,7 @@ class Sync:
             if re.match(r'[0-9]+[.]{2}[0-9]+', opt) is not None:
                 start_node, end_node = opt.split(sep='..')
                 self.nodes += list(map(lambda x: 'node' + str(x),
-                                range(int(start_node), int(end_node) + 1)))
+                                   range(int(start_node), int(end_node) + 1)))
             else:
                 self.nodes.append('node' + opt)
 
