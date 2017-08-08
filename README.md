@@ -16,6 +16,8 @@ version on your system. Once that is done, the library is available system-wide
 # Usage
 Please refer to the docstrings of individual functions and classes.
 
+Scripts for jobs go into the "scripts" directory.
+
 # Included in the package:
 ## Hamiltonians
     spinsys.hamiltonians.quasi_heisenberg.oneleg.H
