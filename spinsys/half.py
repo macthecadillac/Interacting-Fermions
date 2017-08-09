@@ -15,11 +15,10 @@ Functions included:
 """
 
 import numpy as np
-import scipy as sp
+from scipy import misc, sparse
 from spinsys import utils
 from spinsys.utils.cache import Globals as G
 from spinsys.exceptions import SizeMismatchError
-from itertools import chain
 
 
 def generate_complete_basis(N, current_j):
@@ -36,7 +35,7 @@ def generate_complete_basis(N, current_j):
         dim = 2 ** N
         spin_ups = int(round(0.5 * N + current_j))
         spin_downs = N - spin_ups
-        blksize = int(round(sp.misc.comb(N, spin_ups)))
+        blksize = int(round(misc.comb(N, spin_ups)))
         basis_seed = [0] * spin_downs + [1] * spin_ups
         basis = basis_seed
         # "to_diag" is a dict that maps ordinary indices to block diagonalized
@@ -67,21 +66,21 @@ def full_matrix(matrix, k, N):
     Returns a sparse matrix.
     """
     dim = 2
-    if not sp.sparse.issparse(matrix):
-        S = sp.sparse.csc_matrix(matrix)
+    if not sparse.issparse(matrix):
+        S = sparse.csc_matrix(matrix)
     else:
         S = matrix
     if k == 0:
-        S_full = sp.sparse.kron(S, sp.sparse.eye(dim ** (N - 1)))
+        S_full = sparse.kron(S, sparse.eye(dim ** (N - 1)))
     elif k == 1:
-        S_full = sp.sparse.eye(dim)
-        S_full = sp.sparse.kron(S_full, S)
-        S_full = sp.sparse.kron(S_full, sp.sparse.eye(dim ** (N - 2)))
+        S_full = sparse.eye(dim)
+        S_full = sparse.kron(S_full, S)
+        S_full = sparse.kron(S_full, sparse.eye(dim ** (N - 2)))
     else:
-        S_full = sp.sparse.eye(dim)
-        S_full = sp.sparse.kron(S_full, sp.sparse.eye(dim ** (k - 1)))
-        S_full = sp.sparse.kron(S_full, S)
-        S_full = sp.sparse.kron(S_full, sp.sparse.eye(dim ** (N - k - 1)))
+        S_full = sparse.eye(dim)
+        S_full = sparse.kron(S_full, sparse.eye(dim ** (k - 1)))
+        S_full = sparse.kron(S_full, S)
+        S_full = sparse.kron(S_full, sparse.eye(dim ** (N - k - 1)))
 
     return S_full
 
@@ -103,7 +102,7 @@ def expand_and_reorder(N, psi_diag, current_j=0):
     psi_diag = psi_diag.flatten()
     # uses csc_matrix for efficient reordering of the vector. Reshape at
     #  the end ensures the vector comes out to be a normal 1D vector
-    psi_ord = sp.sparse.csc_matrix((psi_diag, indices, [0, veclen]),
+    psi_ord = sparse.csc_matrix((psi_diag, indices, [0, veclen]),
                                    shape=[2 ** N, 1]).toarray().reshape(2 ** N)
     return psi_ord
 
@@ -170,9 +169,9 @@ def reduced_density_op(N, sysA, state, curr_j=0):
 
     hilbert_dim = 2 ** N
     indices = reorder_basis_dict(N, sysA, curr_j)
-    reordered_vec = sp.sparse.csc_matrix((state, indices, [0, hilbert_dim]),
-                                          shape=[2 ** N, 1]).toarray() \
-                                          .reshape(2 ** N)
+    reordered_vec = sparse.csc_matrix((state, indices, [0, hilbert_dim]),
+                                       shape=[2 ** N, 1]).toarray() \
+                                       .reshape(2 ** N)
 
     A_len = len(sysA)
     B_len = N - A_len
@@ -196,11 +195,11 @@ def block_diagonalization_transformation(N):
     current_pos = 0                     # current position along the data array
     for current_j in np.arange(N / 2, -N / 2 - 1, -1):
         spin_ups = round(0.5 * N + current_j)
-        blksize = int(round(sp.misc.comb(N, spin_ups)))
+        blksize = int(round(misc.comb(N, spin_ups)))
         to_diag = generate_complete_basis(N, current_j)[1]
         for ord_ind, diag_ind in to_diag.items():
             row_ind[current_pos] = diag_ind + offset
             col_ind[current_pos] = ord_ind
             current_pos += 1
         offset += blksize
-    return sp.sparse.csc_matrix((data, (row_ind, col_ind)), shape=(dim, dim))
+    return sparse.csc_matrix((data, (row_ind, col_ind)), shape=(dim, dim))
