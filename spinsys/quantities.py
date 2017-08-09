@@ -11,7 +11,7 @@ the spin system.
 """
 
 import numpy as np
-import scipy as sp
+from scipy import misc, sparse
 import spinsys
 from spinsys.utils.cache import Globals as G
 from spinsys.half import bipartite_reduced_density_op
@@ -103,7 +103,7 @@ def spin_glass_order(N, psi):
         Sy = spinsys.constructors.sigmay()
         Sz = spinsys.constructors.sigmaz()
         U = spinsys.half.similarity_trans_matrix(N)
-        blk_size = int(round(sp.misc.comb(N, N / 2)))
+        blk_size = int(round(misc.comb(N, N / 2)))
         start = (2 ** N - blk_size) // 2
         end = start + blk_size
 
@@ -130,7 +130,7 @@ def spin_glass_order(N, psi):
 
     full_S = full_spin_operators(N)
     # Convert psi to sparse for better performance in the next stage
-    psi = sp.sparse.csc_matrix(psi.reshape(psi.shape[0], 1))
+    psi = sparse.csc_matrix(psi.reshape(psi.shape[0], 1))
     bra_dot_Sis = [bra_dot_Si(i) for i in range(N)]
     Sj_dot_kets = [Sj_dot_ket(j) for j in range(N)]
     sg_order_off_diag = sum(np.abs(bra_dot_Sis[i][s].dot(Sj_dot_kets[j][s])) ** 2
