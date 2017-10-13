@@ -8,13 +8,12 @@ for exact terms and conditions.
 
 Timer class.
 
-1-14-2017
+10-13-2017
 """
 
+import datetime
 import time
-import sys
 import shutil
-import os
 
 
 class EstimateTime():
@@ -49,7 +48,7 @@ class EstimateTime():
         """This method returns the estimated time"""
         try:
             time_per_iteration = self.__alg[self.mode]()
-            return (self.njobs - self.__iteration) * time_per_iteration
+            return round((self.njobs - self.__iteration) * time_per_iteration)
         except ZeroDivisionError:
             return 0
 
@@ -107,35 +106,6 @@ class Timer():
         """
         self.iteration += 1
 
-    def __sec_to_human_readable_format(self, time):
-        """
-        Converts time (in seconds) into the HHMMSS format. Returns a string.
-        """
-        Days = str(int(time // 86400))
-        Hr = int((time % 86400) // 3600)
-        if Hr < 10:
-            Hr = "0" + str(Hr)
-        else:
-            Hr = str(Hr)
-        Min = int((time % 3600) // 60)
-        if Min < 10:
-            Min = "0" + str(Min)
-        else:
-            Min = str(Min)
-        Sec = round(time % 60)
-        if Sec < 10:
-            Sec = "0" + str(Sec)
-        else:
-            Sec = str(Sec)
-        if Days == str(0):
-            ET = Hr + ":" + Min + ":" + Sec + "        "
-        elif Days == str(1):
-            ET = Days + " Day " + Hr + ":" + Min + ":" + Sec + "  "
-        else:
-            ET = Days + " Days " + Hr + ":" + Min + ":" + Sec
-
-        return ET
-
     def __show_progress(self):
         """
         Shows the progress bar on screen. When being called after the
@@ -154,7 +124,7 @@ class Timer():
 
             if self.iteration == self.total:
                 est_time = 0
-            ET = self.__sec_to_human_readable_format(est_time)
+            ET = str(datetime.timedelta(seconds=est_time))
 
             report_time = "Est. time: {}  Elapsed: {}".format(ET, elapsed)
             barlength = term_width - len(report_time) - 26
@@ -162,20 +132,15 @@ class Timer():
             percent = round(100.00 * ((self.iteration) / self.total), 1)
 
         bar = '\u2588' * filledlength + '\u00B7' * (barlength - filledlength)
-        sys.stdout.write('\r%s |%s| %s%s %s' % ('  Progress:', bar,
-                                                percent, '%  ', report_time)),
-        sys.stdout.flush()
-        if self.iteration == self.total:
-            sys.stdout.write('\n')
-            sys.stdout.flush()
+        print('  Progress: |{}| {}%  {}'.format(bar, percent, report_time), end='\r')
 
         if self.iteration == self.total:
-            print('  Done.')
+            print('\n  Done.')
 
     def elapsed_time(self):
         """Prints the total elapsed time."""
-        elapsed = time.time() - self.__start_time
-        elapsed_time = self.__sec_to_human_readable_format(elapsed)
+        elapsed = round(time.time() - self.__start_time)
+        elapsed_time = str(datetime.timedelta(seconds=elapsed))
         return elapsed_time
 
     def progress(self):
