@@ -1,5 +1,6 @@
 import numpy as np
 import spinsys
+from spinsys.utils.cache import Globals as G
 
 
 class SiteVector(spinsys.constructors.SiteVector):
@@ -22,18 +23,27 @@ class SiteVector(spinsys.constructors.SiteVector):
 
 def hamiltonian(Nx, Ny, J_pm=1, J_z=1, J_ppmm=1, J_pmz=1):
     N = Nx * Ny
+
     σ_p = spinsys.constructors.raising()
     σ_m = spinsys.constructors.lowering()
     σz = spinsys.constructors.sigmaz()
 
-    # Generate full matrices for all the S+, S- and Sz operators
-    p_mats = [spinsys.half.full_matrix(σ_p, k, N) for k in range(N)]
-    m_mats = [spinsys.half.full_matrix(σ_m, k, N) for k in range(N)]
-    z_mats = [spinsys.half.full_matrix(σz, k, N) for k in range(N)]
+    # Generate full matrices for all the S+, S- and Sz operators and
+    #  store them in the Globals dictionary so we don't have to regenerate
+    #  them every time we need them
+    G['full_S'] = {}
+    G['full_S'][N] = dict(
+        (key, [spinsys.half.full_matrix(S, k, N) for k in range(N)])
+        for key, S in {'+': σ_p, '-': σ_m, 'z': σz}.items())
+
+    p_mats = G['full_S'][N]['+']
+    m_mats = G['full_S'][N]['-']
+    z_mats = G['full_S'][N]['z']
 
     # Permute through all the nearest neighbor coupling bonds
     bonds = []
     vec = SiteVector((0, 0), Nx, Ny)
+    print(vec)
     for i in range(N):
         bonds.append((vec, vec.xhop(1)))
         bonds.append((vec, vec.yhop(1)))
