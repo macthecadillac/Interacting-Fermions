@@ -132,7 +132,7 @@ class Timer():
             percent = round(100.00 * ((self.iteration) / self.total), 1)
 
         bar = '\u2588' * filledlength + '\u00B7' * (barlength - filledlength)
-        print('  Progress: |{}| {}%  {}'.format(bar, percent, report_time), end='\r')
+        print('\r  Progress: |{}| {}%  {} '.format(bar, percent, report_time), end='')
 
         if self.iteration == self.total:
             print('\n  Done.')
