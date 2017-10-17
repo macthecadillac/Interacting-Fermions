@@ -34,7 +34,8 @@ def hamiltonian(Nx, Ny, J_pm=1, J_z=1, J_ppmm=1, J_pmz=1):
     G['full_S'] = {}
     G['full_S'][N] = dict(
         (key, [spinsys.half.full_matrix(S, k, N) for k in range(N)])
-        for key, S in {'+': σ_p, '-': σ_m, 'z': σz}.items())
+        for key, S in {'+': σ_p, '-': σ_m, 'z': σz}.items()
+    )
 
     p_mats = G['full_S'][N]['+']
     m_mats = G['full_S'][N]['-']
@@ -43,7 +44,6 @@ def hamiltonian(Nx, Ny, J_pm=1, J_z=1, J_ppmm=1, J_pmz=1):
     # Permute through all the nearest neighbor coupling bonds
     bonds = []
     vec = SiteVector((0, 0), Nx, Ny)
-    print(vec)
     for i in range(N):
         bonds.append((vec, vec.xhop(1)))
         bonds.append((vec, vec.yhop(1)))
