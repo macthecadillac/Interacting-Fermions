@@ -2,31 +2,10 @@ import numpy as np
 import spinsys
 
 
-class SiteVector:
+class SiteVector(spinsys.constructors.SiteVector):
 
     def __init__(self, ordered_pair, Nx, Ny):
-        self.x = ordered_pair[0]
-        self.y = ordered_pair[1]
-        self.Nx = Nx
-        self.Ny = Ny
-
-    def next_site(self):
-        new_index = self.lattice_index + 1
-        new_y = new_index // self.Nx
-        new_x = new_index % self.Nx
-        return SiteVector((new_x, new_y), self.Nx, self.Ny)
-
-    def xhop(self, stride):
-        new_x = (self.x + stride) % self.Nx
-        return SiteVector((new_x, self.y), self.Nx, self.Ny)
-
-    def yhop(self, stride):
-        new_y = (self.y + self.Nx * stride) % self.Ny
-        return SiteVector((self.x, new_y), self.Nx, self.Ny)
-
-    @property
-    def lattice_index(self):
-        return self.x + self.Nx * self.y
+        super().__init__(ordered_pair, Nx, Ny)
 
     def angle_with(self, some_site):
         """Returns the angle * 2 between (some_site - self) with the
