@@ -8,10 +8,15 @@ for exact terms and conditions.
 
 This module provides functions that calculate certain quantities of
 the spin system.
+
+Functions included in this module:
+    adj_gap_ratio
+    von_neumann_entropy
+    half_chain_spin_dispersion
 """
 
 import numpy as np
-from scipy import misc, sparse
+from scipy import sparse
 import spinsys
 from spinsys.utils.cache import Globals as G
 from spinsys.half import bipartite_reduced_density_op
@@ -84,59 +89,3 @@ def half_chain_spin_dispersion(N, psi, curr_j=0):
     Sz_expected = psi.conjugate().dot(tot_Sz_diagonal * psi)
     Sz2_expected = psi.conjugate().dot(tot_Sz_diagonal ** 2 * psi)
     return Sz2_expected - Sz_expected ** 2
-
-
-def spin_glass_order(N, psi):
-    """Calculates the spin glass order 1/N * \sum_{i, j} |<S_i \cdot S_j>^2|
-    NEEDS TO BE TESTED FOR BUGS
-
-    Args: "N" number of sites
-          "psi" a given state.
-    Returns: float
-    """
-    @spinsys.utils.cache.cache_ram
-    def full_spin_operators(N):
-        """Generate full spin operators for every site in the block
-        diagonal basis for the <Sz>=0 subspace
-        """
-        Sx = spinsys.constructors.sigmax()
-        Sy = spinsys.constructors.sigmay()
-        Sz = spinsys.constructors.sigmaz()
-        U = spinsys.half.similarity_trans_matrix(N)
-        blk_size = int(round(misc.comb(N, N / 2)))
-        start = (2 ** N - blk_size) // 2
-        end = start + blk_size
-
-        # Generate full spin operators for every site
-        full_S = [[spinsys.half.full_matrix(S, k, N) for k in range(N)]
-                  for S in [Sx, Sy, Sz]]
-        # Transform the spin operator into block diagonalized basis and
-        #  truncate
-        full_S = [map(lambda x: (U * x * U.T)[start: end, start: end], full_S[s])
-                  for s in range(3)]
-        return list(map(list, full_S))
-
-    def Sj_dot_ket(j):
-        """Generate Sj|psi> for every site for the current state."""
-        # The outputs are numpy 1D arrays because of toarray and flatten
-        return [full_S[s][j].dot(psi).toarray().flatten() for s in range(3)]
-
-    def bra_dot_Si(i):
-        """Generate <psi|Si for every site for the current state."""
-        # The outputs are numpy 1D arrays because of toarray and flatten
-        psi_conjtransp = psi.T.conjugate()
-        return [psi_conjtransp.dot(full_S[s][i]).toarray().flatten()
-                for s in range(3)]
-
-    full_S = full_spin_operators(N)
-    # Convert psi to sparse for better performance in the next stage
-    psi = sparse.csc_matrix(psi.reshape(psi.shape[0], 1))
-    bra_dot_Sis = [bra_dot_Si(i) for i in range(N)]
-    Sj_dot_kets = [Sj_dot_ket(j) for j in range(N)]
-    sg_order_off_diag = sum(np.abs(bra_dot_Sis[i][s].dot(Sj_dot_kets[j][s])) ** 2
-                            for s in range(3)
-                            for i in range(N)
-                            for j in range(i + 1, N)) * 2
-    sg_order_diag = sum(np.abs(bra_dot_Sis[i][s].dot(Sj_dot_kets[i][s])) ** 2
-                        for s in range(3) for i in range(N))
-    return (sg_order_off_diag + sg_order_diag) / N
