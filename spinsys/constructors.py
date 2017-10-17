@@ -6,15 +6,17 @@ it under the terms of the BSD 3-clause license. See LICENSE.txt
 for exact terms and conditions.
 
 
-The constructors module provides commonly used constructors for
-quantum computation. Constructors provided in this module:
+The constructors module provides several functions that generate
+quantum mechanical operators and also one class that makes traversing
+a lattice simpler. Function included are:
     raising
     lowering
     sigmax
     sigmay
     sigmaz
 
-1-14-2017
+Class:
+    SiteVector
 """
 
 import numpy as np
@@ -74,3 +76,30 @@ def sigmaz(spin=0.5):
     data = [i for i in np.arange(spin, -spin - 1, -1)]
     ind = list(range(dim))
     return sp.csc_matrix((data, (ind, ind)), shape=(dim, dim))
+
+
+class SiteVector:
+
+    def __init__(self, ordered_pair, Nx, Ny):
+        self.x = ordered_pair[0]
+        self.y = ordered_pair[1]
+        self.Nx = Nx
+        self.Ny = Ny
+
+    def next_site(self):
+        new_index = self.lattice_index + 1
+        new_y = new_index // self.Nx
+        new_x = new_index % self.Nx
+        return SiteVector((new_x, new_y), self.Nx, self.Ny)
+
+    def xhop(self, stride):
+        new_x = (self.x + stride) % self.Nx
+        return SiteVector((new_x, self.y), self.Nx, self.Ny)
+
+    def yhop(self, stride):
+        new_y = (self.y + self.Nx * stride) % self.Ny
+        return SiteVector((self.x, new_y), self.Nx, self.Ny)
+
+    @property
+    def lattice_index(self):
+        return self.x + self.Nx * self.y
