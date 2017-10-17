@@ -19,6 +19,7 @@ Class:
     SiteVector
 """
 
+import copy
 import numpy as np
 import scipy.sparse as sp
 
@@ -88,17 +89,20 @@ class SiteVector:
 
     def next_site(self):
         new_index = self.lattice_index + 1
-        new_y = new_index // self.Nx
-        new_x = new_index % self.Nx
-        return SiteVector((new_x, new_y), self.Nx, self.Ny)
+        new_vec = copy.copy(self)
+        new_vec.x = new_index % self.Nx
+        new_vec.y = new_index // self.Nx
+        return new_vec    # Returns a modified instance of self
 
     def xhop(self, stride):
-        new_x = (self.x + stride) % self.Nx
-        return SiteVector((new_x, self.y), self.Nx, self.Ny)
+        new_vec = copy.copy(self)
+        new_vec.x = (self.x + stride) % self.Nx
+        return new_vec
 
     def yhop(self, stride):
-        new_y = (self.y + self.Nx * stride) % self.Ny
-        return SiteVector((self.x, new_y), self.Nx, self.Ny)
+        new_vec = copy.copy(self)
+        new_vec.y = (self.y + self.Nx * stride) % self.Ny
+        return new_vec
 
     @property
     def lattice_index(self):
