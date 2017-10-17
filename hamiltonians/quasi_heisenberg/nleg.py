@@ -1,15 +1,3 @@
-"""
-This file is part of spinsys.
-
-Spinsys is free software: you can redistribute it and/or modify
-it under the terms of the BSD 3-clause license. See LICENSE.txt
-for exact terms and conditions.
-
-
-This module provides functions to generate a N-legged hamiltonian
-using tensor products
-"""
-
 import numpy as np
 from spinsys import half
 from spinsys import constructors as c

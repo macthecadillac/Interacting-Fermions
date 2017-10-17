@@ -1,15 +1,3 @@
-"""
-This file is part of spinsys.
-
-Spinsys is free software: you can redistribute it and/or modify
-it under the terms of the BSD 3-clause license. See LICENSE.txt
-for exact terms and conditions.
-
-
-Provides functions to generate the n-legged hamiltonian in the block
-diagonal form.
-"""
-
 import spinsys as s
 from spinsys.utils.cache import Globals as G
 import scipy.sparse as ss
