@@ -1,4 +1,5 @@
 from spinsys import constructors
+from spinsys import dmrg
 from spinsys import exceptions
 from spinsys import half
 from spinsys import hamiltonians
@@ -11,6 +12,7 @@ import numpy
 
 __all__ = [
     "constructors",
+    "dmrg",
     "exceptions",
     "half",
     "hamiltonians",
