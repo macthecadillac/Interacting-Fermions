@@ -87,6 +87,10 @@ class SiteVector:
         self.Nx = Nx
         self.Ny = Ny
 
+    def __repr__(self):
+        s = "SiteVector(pair=({}, {}), Nx={}, Ny={})"
+        return s.format(self.x, self.y, self.Nx, self.Ny)
+
     def next_site(self):
         new_index = self.lattice_index + 1
         new_vec = copy.copy(self)
