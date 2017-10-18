@@ -90,8 +90,17 @@ class SiteVector:
         self.Ny = Ny
 
     def __repr__(self):
-        s = "SiteVector(pair=({}, {}), Nx={}, Ny={})"
-        return s.format(self.x, self.y, self.Nx, self.Ny)
+        """Pretty print for debug purposes"""
+        s = "{}(pair=({}, {}), Nx={}, Ny={})"
+        # an ugly hack but it seems to be the only way to get the type
+        #  of an instantiated child class directly from the parent class
+        type_of_self = str(self.__class__).split('.')[-1][:-2]
+        return s.format(type_of_self, self.x, self.y, self.Nx, self.Ny)
+
+    def __eq__(self, other):
+        dictcomp = self.__dict__ == other.__dict__
+        typecomp = self.__class__ == other.__class__
+        return dictcomp and typecomp
 
     def diff(self):
         raise NotImplementedError
@@ -140,12 +149,12 @@ class PeriodicBCSiteVector(SiteVector):
 
     def xhop(self, stride):
         new_vec = copy.copy(self)
-        new_vec.y = (self.y + self.Nx * stride) % self.Ny
+        new_vec.x = (self.x + stride) % self.Nx
         return new_vec
 
     def yhop(self, stride):
         new_vec = copy.copy(self)
-        new_vec.y = (self.y + self.Nx * stride) % self.Ny
+        new_vec.y = (self.y + stride) % self.Ny
         return new_vec
 
 
@@ -166,14 +175,14 @@ class OpenBCSiteVector(SiteVector):
         if new_x // self.Nx == self.x // self.Nx:
             new_vec.x = new_x
         else:
-            raise OutOfBoundsError("Already at the edge of the lattice")
+            raise OutOfBoundsError("Hopping off the lattice")
         return new_vec
 
     def yhop(self, stride):
         new_vec = copy.copy(self)
-        new_y = self.y + self.Nx * stride
+        new_y = self.y + stride
         if new_y // self.Ny == self.x // self.Ny:
             new_vec.y = new_y
         else:
-            raise OutOfBoundsError("Already at the edge of the lattice")
+            raise OutOfBoundsError("Hopping off the lattice")
         return new_vec
