@@ -83,12 +83,11 @@ def sigmaz(spin=0.5):
 
 class SiteVector:
 
-    def __init__(self, ordered_pair, Nx, Ny, periodic=True):
+    def __init__(self, ordered_pair, Nx, Ny):
         self.x = ordered_pair[0]
         self.y = ordered_pair[1]
         self.Nx = Nx
         self.Ny = Ny
-        self.periodic = periodic
 
     def __repr__(self):
         s = "SiteVector(pair=({}, {}), Nx={}, Ny={})"
