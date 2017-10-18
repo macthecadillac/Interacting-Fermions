@@ -16,7 +16,6 @@ Functions included in this module:
 """
 
 import numpy as np
-from scipy import sparse
 import spinsys
 from spinsys.utils.cache import Globals as G
 from spinsys.half import bipartite_reduced_density_op
