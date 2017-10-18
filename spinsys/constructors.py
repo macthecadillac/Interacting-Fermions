@@ -130,7 +130,7 @@ class PeriodicBCSiteVector(SiteVector):
                 Δvar = d
             else:
                 sgn = d // abs(d)
-                Δvar = sgn * N % abs(d)
+                Δvar = sgn * (N % abs(d))
             return Δvar
 
         diffx = (self.x - other.x, self.Nx)
