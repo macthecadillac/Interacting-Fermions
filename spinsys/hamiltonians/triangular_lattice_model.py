@@ -1,6 +1,5 @@
 import numpy as np
 import spinsys
-from spinsys.utils.cache import Globals as G
 
 
 class SiteVector(spinsys.constructors.PeriodicBCSiteVector):
@@ -10,13 +9,15 @@ class SiteVector(spinsys.constructors.PeriodicBCSiteVector):
 
     def angle_with(self, some_site):
         """Returns the angle * 2 between (some_site - self) with the
-        horizontal
+        horizontal. Only works on nearest neighbors
         """
-        index_diff = some_site.lattice_index - self.lattice_index
-        if index_diff == 1 or abs(index_diff) == self.Nx - 1:
-            return 0
-        elif index_diff % self.Nx == 0:
-            return -2 * np.pi / 3
+        Δx, Δy = some_site - self
+        if Δx == 0:
+            if Δy != 0:
+                return -2 * np.pi / 3
+        elif Δy == 0:
+            if Δx != 0:
+                return 0
         else:
             return 2 * np.pi / 3
 
@@ -28,18 +29,9 @@ def hamiltonian(Nx, Ny, J_pm=1, J_z=1, J_ppmm=1, J_pmz=1):
     σ_m = spinsys.constructors.lowering()
     σz = spinsys.constructors.sigmaz()
 
-    # Generate full matrices for all the S+, S- and Sz operators and
-    #  store them in the Globals dictionary so we don't have to regenerate
-    #  them every time we need them
-    G['full_S'] = {}
-    G['full_S'][N] = dict(
-        (key, [spinsys.half.full_matrix(S, k, N) for k in range(N)])
-        for key, S in {'+': σ_p, '-': σ_m, 'z': σz}.items()
-    )
-
-    p_mats = G['full_S'][N]['+']
-    m_mats = G['full_S'][N]['-']
-    z_mats = G['full_S'][N]['z']
+    p_mats = [spinsys.half.full_matrix(σ_p, k, N) for k in range(N)]
+    m_mats = [spinsys.half.full_matrix(σ_m, k, N) for k in range(N)]
+    z_mats = [spinsys.half.full_matrix(σz, k, N) for k in range(N)]
 
     # Permute through all the nearest neighbor coupling bonds
     bonds = []
