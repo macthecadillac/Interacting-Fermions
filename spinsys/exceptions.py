@@ -7,9 +7,11 @@ for exact terms and conditions.
 
 
 This module provides custom exception classes for more convenient
-exception handling
-
-1-13-2017
+exception handling. The following classes are included:
+    NoConvergence
+    SizeMismatchError
+    StateNotFoundError
+    OutOfBoundsError
 """
 
 
@@ -22,4 +24,8 @@ class SizeMismatchError(Exception):
 
 
 class StateNotFoundError(Exception):
+    pass
+
+
+class OutOfBoundsError(Exception):
     pass
