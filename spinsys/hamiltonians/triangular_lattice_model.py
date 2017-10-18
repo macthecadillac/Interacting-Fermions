@@ -3,7 +3,7 @@ import spinsys
 from spinsys.utils.cache import Globals as G
 
 
-class SiteVector(spinsys.constructors.SiteVector):
+class SiteVector(spinsys.constructors.PeriodicBCSiteVector):
 
     def __init__(self, ordered_pair, Nx, Ny):
         super().__init__(ordered_pair, Nx, Ny)
