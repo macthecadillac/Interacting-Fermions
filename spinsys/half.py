@@ -159,7 +159,7 @@ def reduced_density_op(N, sys, vec):
         """Returns a dictionary that maps the old ordering of the sites
         to the new
         """
-        env = [i for i in range(N) if i not in sys]
+        env = sorted(set(range(N)) - set(sys))
         # Possible spin configurations of sys and env, in 1's and 0's
         sys_configs = generate_binlists(syslen)
         env_configs = generate_binlists(envlen)
