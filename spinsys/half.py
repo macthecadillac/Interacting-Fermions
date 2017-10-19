@@ -8,10 +8,14 @@ for exact terms and conditions.
 
 This module provides functions working on half-spin systems.
 Functions included:
-    create_complete_basis
+    generate_complete_basis
     full_matrix
-    reorder_basis
-    similarity_trans_matrix
+    expand_and_reorder
+    bipartite_reduced_density_op
+    reduced_density_op
+    block_diagonalization_transformation
+
+10-16-2017
 """
 
 import numpy as np
@@ -59,8 +63,8 @@ def full_matrix(matrix, k, N):
     """
     Builds the S matrices in an N particle system. Assumes periodic boundary
     condition.
-    "S" could be an operator/state we want to work on. If it is a state, it
-    must be put in a column vector form. "S" must be sparse.
+    "matrix" could be an operator/state we want to work on. If it is a state, it
+    must be put in a column vector form. "matrix" must be sparse.
     "k" is the location index of the particle in a particle chain. The first
     particle has k=0, the second has k=1 and so on.
     Returns a sparse matrix.
@@ -103,7 +107,7 @@ def expand_and_reorder(N, psi_diag, current_j=0):
     # uses csc_matrix for efficient reordering of the vector. Reshape at
     #  the end ensures the vector comes out to be a normal 1D vector
     psi_ord = sparse.csc_matrix((psi_diag, indices, [0, veclen]),
-                                   shape=[2 ** N, 1]).toarray().reshape(2 ** N)
+                                shape=[2 ** N, 1]).toarray().reshape(2 ** N)
     return psi_ord
 
 
@@ -125,57 +129,69 @@ def bipartite_reduced_density_op(N, state):
     return np.dot(reshaped_state, reshaped_state.conjugate().transpose())
 
 
-def reduced_density_op(N, sysA, state, curr_j=0):
+def reduced_density_op(N, sys, vec, j=0):
     """Creates the density matrix using a state. Useful for calculating
     non-bipartite i.e. arbitrary cut entanglement entropy
 
-    Args: "N" total system size
-          "sysA" sites along the chain that belong to system A, the system
-                 we are interested in (Python list)
-          "state" a column vector that has to be dense (numpy.array)
-          "curr_j" total spin
-    Returns: Numpy array
+    Parameters:
+    --------------------
+    N: int
+        total system size
+    sys: list
+        sites along the chain that belong to system A, the system we
+        are interested in
+    vec: numpy.array
+        a column vector that has to be dense
+    j: int/float
+        total spin
+
+    Returns
+    --------------------
+    Numpy array
     """
-    # TODO: Partially working. Passed 2-leg bipartite configurations in both
-    #  directions. Discrepencies found in configurations involving more than
-    #  two legs.
-    # @utils.cache.cache_ram
-    def reorder_basis_dict(N, sysA, curr_j):
-        A_len = len(sysA)
-        B_len = N - A_len
-        sysB = [i for i in range(N) if i not in sysA]
-        # Possible spin configurations of sysA, in 1's and 0's
-        sysA_configs = [list(map(int, bin(i)[2:])) for i in
-                        range(2 ** A_len - 1, -1, -1)]
-        sysA_configs = [[0] * (A_len - len(c)) + c for c in sysA_configs]
-        # Possible spin configurations of sysB, in 1's and 0's
-        sysB_configs = [list(map(int, bin(i)[2:])) for i in
-                        range(2 ** B_len - 1, -1, -1)]
-        sysB_configs = [[0] * (B_len - len(c)) + c for c in sysB_configs]
+    def generate_binlists(partition_len):
+        configs = [format(i, '0{}b'.format(partition_len)) for i in
+                   range(2 ** partition_len - 1, -1, -1)]
+        configs = list(map(list, configs))
+        return [list(map(int, config)) for config in configs]
+
+
+    def reorder_basis_dict(N, sys, j=0):
+        syslen = len(sys)
+        envlen = N - syslen
+        env = [i for i in range(N) if i not in sys]
+        # Possible spin configurations of sys and env, in 1's and 0's
+        sys_configs = generate_binlists(syslen)
+        env_configs = generate_binlists(envlen)
         # The full basis set when we merge the above configurations. Now in
         #  our desired order.
-        full_basis = [list(zip(*sorted(zip(sysA + sysB, bA + bB))))[1]
-                      for bA in sysA_configs for bB in sysB_configs]
+        sites = sys + env
+        full_basis = [(sites, sysi + envj) for sysi in sys_configs
+                      for envj in env_configs]
+        reordered_basis = []
+        for basis_state in full_basis:
+            reordered_basis.append(list(zip(*sorted(zip(*basis_state))))[1])
+
         # Indices indicating the new locations of the vector elements.
         indices = [hilbert_dim - utils.misc.bin_to_dec(b) - 1
-                   for i, b in enumerate(full_basis)]
+                   for i, b in enumerate(reordered_basis)]
         return indices
 
     dim = 2 ** (N // 2)            # Dimensions of the reduced density matrices
-    if not max(state.shape) == dim ** 2:
-        error_msg = 'Did you forget to expand the state into the full' + \
+    if not max(vec.shape) == dim ** 2:
+        error_msg = 'Did you forget to expand the vec into the full' + \
             'Hilbert space?'
         raise SizeMismatchError(error_msg)
 
     hilbert_dim = 2 ** N
-    indices = reorder_basis_dict(N, sysA, curr_j)
-    reordered_vec = sparse.csc_matrix((state, indices, [0, hilbert_dim]),
-                                       shape=[2 ** N, 1]).toarray() \
-                                       .reshape(2 ** N)
+    indices = reorder_basis_dict(N, sys, j)
+    reordered_vec = sparse.csc_matrix((vec, indices, [0, hilbert_dim]),
+                                      shape=[2 ** N, 1]).toarray() \
+        .reshape(2 ** N)
 
-    A_len = len(sysA)
-    B_len = N - A_len
-    reshaped_state = np.reshape(reordered_vec, [2 ** A_len, 2 ** B_len])
+    syslen = len(sys)
+    envlen = N - syslen
+    reshaped_state = np.reshape(reordered_vec, [2 ** syslen, 2 ** envlen])
     return reshaped_state.dot(reshaped_state.T.conjugate())
 
 
