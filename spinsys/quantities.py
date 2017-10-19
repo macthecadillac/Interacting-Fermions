@@ -18,7 +18,6 @@ Functions included in this module:
 import numpy as np
 import spinsys
 from spinsys.utils.cache import Globals as G
-from spinsys.half import bipartite_reduced_density_op
 
 
 def adj_gap_ratio(sorted_eigvals):
@@ -34,23 +33,23 @@ def adj_gap_ratio(sorted_eigvals):
     return np.array(agrs)
 
 
-def von_neumann_entropy(N, state, base='e'):
+def von_neumann_entropy(ρ, base='e'):
     """
     Find the bipartite von Neumann entropy of a given state.
 
-    Args: "N" total system size
-          "state" a vector that has to be dense
-          "base" the base of the log function. It could be 'e', '2' or '10'
-          "return_eigvals" a boolean that if set to True will return all
-                the eigenvalues of the density matrix
-    Returns: "entropy" a float
-             Numpy array of all eigenvalues of the density matrix if
-                "return_eigvals" is set to True. The eigenvalues are
-                sorted from largest to smallest.
+    Parameters
+    --------------------
+    ρ: numpy.array
+        Reduved density matrix
+    base: string
+        The base of the log function. It could be 'e', '2' or '10'
+
+    Returns:
+    --------------------
+    entropy: numpy.float
     """
     log = {'e': np.log, '2': np.log2, '10': np.log10}
-    reduced_rho = bipartite_reduced_density_op(N, state)
-    eigs = np.real(np.linalg.eigvalsh(reduced_rho))     # eigs are real anyways
+    eigs = np.real(np.linalg.eigvalsh(ρ))     # eigs are real anyways
     # Eigenvalues are always greater or equal to zero but rounding errors
     #  might sometimes introduce very small negative numbers
     eigs_filtered = np.array([eig if abs(eig) > 1e-8 else 1 for eig in eigs])
