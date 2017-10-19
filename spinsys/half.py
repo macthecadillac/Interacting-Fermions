@@ -129,7 +129,7 @@ def bipartite_reduced_density_op(N, state):
     return np.dot(reshaped_state, reshaped_state.conjugate().transpose())
 
 
-def reduced_density_op(N, sys, vec, j=0):
+def reduced_density_op(N, sys, vec):
     """Creates the density matrix using a state. Useful for calculating
     non-bipartite i.e. arbitrary cut entanglement entropy
 
@@ -151,14 +151,14 @@ def reduced_density_op(N, sys, vec, j=0):
     """
     def generate_binlists(partition_len):
         configs = [format(i, '0{}b'.format(partition_len)) for i in
-                   range(2 ** partition_len - 1, -1, -1)]
-        configs = list(map(list, configs))
+                    range(2 ** partition_len - 1, -1, -1)]
+        configs = map(list, configs)
         return [list(map(int, config)) for config in configs]
 
-
-    def reorder_basis_dict(N, sys, j=0):
-        syslen = len(sys)
-        envlen = N - syslen
+    def reorder_basis_dict(N, sys):
+        """Returns a dictionary that maps the old ordering of the sites
+        to the new
+        """
         env = [i for i in range(N) if i not in sys]
         # Possible spin configurations of sys and env, in 1's and 0's
         sys_configs = generate_binlists(syslen)
@@ -168,29 +168,35 @@ def reduced_density_op(N, sys, vec, j=0):
         sites = sys + env
         full_basis = [(sites, sysi + envj) for sysi in sys_configs
                       for envj in env_configs]
+
         reordered_basis = []
         for basis_state in full_basis:
-            reordered_basis.append(list(zip(*sorted(zip(*basis_state))))[1])
+            site_and_spin = zip(*basis_state)
+            sorted_by_site = sorted(site_and_spin)
+            basis_state_config = list(zip(*sorted_by_site))[1]
+            reordered_basis.append(basis_state_config)
 
         # Indices indicating the new locations of the vector elements.
-        indices = [hilbert_dim - utils.misc.bin_to_dec(b) - 1
+        # orig_ind = range(hilbert_dim)
+        new_ind = [hilbert_dim - utils.misc.bin_to_dec(b) - 1
                    for i, b in enumerate(reordered_basis)]
-        return indices
-
-    dim = 2 ** (N // 2)            # Dimensions of the reduced density matrices
-    if not max(vec.shape) == dim ** 2:
-        error_msg = 'Did you forget to expand the vec into the full' + \
-            'Hilbert space?'
-        raise SizeMismatchError(error_msg)
-
-    hilbert_dim = 2 ** N
-    indices = reorder_basis_dict(N, sys, j)
-    reordered_vec = sparse.csc_matrix((vec, indices, [0, hilbert_dim]),
-                                      shape=[2 ** N, 1]).toarray() \
-        .reshape(2 ** N)
+        return new_ind
 
     syslen = len(sys)
     envlen = N - syslen
+    hilbert_dim = 2 ** N
+    if not max(vec.shape) == hilbert_dim:
+        error_msg = 'Did you forget to expand the vec into the full ' + \
+            'Hilbert space?'
+        raise SizeMismatchError(error_msg)
+
+    sys = sorted(sys)
+    indices = reorder_basis_dict(N, sys)
+    indptr = np.array([0, hilbert_dim])
+    reordered_vec = sparse.csc_matrix((vec, indices, indptr),
+                                      shape=[hilbert_dim, 1]).toarray() \
+        .reshape(2 ** N)
+
     reshaped_state = np.reshape(reordered_vec, [2 ** syslen, 2 ** envlen])
     return reshaped_state.dot(reshaped_state.T.conjugate())
 
