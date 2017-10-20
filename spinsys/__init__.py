@@ -2,7 +2,6 @@ from spinsys import constructors
 from spinsys import dmrg
 from spinsys import exceptions
 from spinsys import half
-from spinsys import hamiltonians
 from spinsys import quantities
 from spinsys import state_generators
 from spinsys import time_dependent
@@ -15,7 +14,6 @@ __all__ = [
     "dmrg",
     "exceptions",
     "half",
-    "hamiltonians",
     "quantities",
     "state_generators",
     "time_dependent",
