@@ -4,9 +4,8 @@ This library depends on numpy and scipy.
 
 ## Setting up
 
-Clone the repository into your favorite location. If you are developing the code
-from that machine, run `python3 setup.py develop --user`. If you are deploying
-the code, run `python3 setup.py install --user`.
+Clone the repository into your favorite location. For development, run `python3
+setup.py install --user`. For deployment, run `python3 setup.py install --user`.
 
 ## Usage
 
