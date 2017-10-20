@@ -18,6 +18,7 @@ Functions included:
 10-16-2017
 """
 
+import functools
 import numpy as np
 from scipy import misc, sparse
 from spinsys import utils
@@ -149,13 +150,15 @@ def reduced_density_op(N, sys, vec):
     --------------------
     Numpy array
     """
+    @functools.lru_cache(maxsize=None)
     def generate_binlists(partition_len):
         configs = [format(i, '0{}b'.format(partition_len)) for i in
                     range(2 ** partition_len - 1, -1, -1)]
         configs = map(list, configs)
         return [list(map(int, config)) for config in configs]
 
-    def reorder_basis_dict(N, sys):
+    @functools.lru_cache(maxsize=None)
+    def reorder_basis_dict(N, sysstr):
         """Returns a dictionary that maps the old ordering of the sites
         to the new
         """
@@ -191,7 +194,9 @@ def reduced_density_op(N, sys, vec):
         raise SizeMismatchError(error_msg)
 
     sys = sorted(sys)
-    indices = reorder_basis_dict(N, sys)
+    # sysstr makes hashing possible (for LRU cache)
+    sysstr = ''.join(map(str, sys))
+    indices = reorder_basis_dict(N, sysstr)
     indptr = np.array([0, hilbert_dim])
     reordered_vec = sparse.csc_matrix((vec, indices, indptr),
                                       shape=[hilbert_dim, 1]).toarray() \
