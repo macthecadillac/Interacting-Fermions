@@ -11,11 +11,9 @@ Functions included:
     generate_complete_basis
     full_matrix
     expand_and_reorder
-    bipartite_reduced_density_op
+    reduced_density_op_arbitraty_sys
     reduced_density_op
     block_diagonalization_transformation
-
-10-16-2017
 """
 
 import functools
