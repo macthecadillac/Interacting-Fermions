@@ -111,35 +111,44 @@ def expand_and_reorder(N, psi_diag, current_j=0):
     return psi_ord
 
 
-def bipartite_reduced_density_op(N, state):
+def reduced_density_op(N, sys_size, vec):
     """
     Creates the density matrix using a state. Useful for calculating
-    bipartite entropy
+    entanglement entropy that does not require an arbitrary cut.
 
-    Args: "state" a column vector that has to be dense (numpy.array)
-          "N" total system size
-    Returns: Numpy array
+    Parameters:
+    --------------------
+    N: int
+        size of lattice
+    sys_size: int
+        size of system
+    vec: numpy.array
+        a column vector that has to be dense
+
+    Returns
+    --------------------
+    ρ: numpy.array
     """
-    dim = 2 ** (N // 2)            # Dimensions of the reduced density matrices
-    if not max(state.shape) == dim ** 2:
+    hilbert_dim = 2 ** N
+    if not max(vec.shape) == hilbert_dim:
         error_msg = 'Did you forget to expand the state into the full' + \
             'Hilbert space?'
         raise SizeMismatchError(error_msg)
-    reshaped_state = np.reshape(state, [dim, dim])
+    env_size = N - sys_size
+    reshaped_state = np.reshape(vec, [2 ** sys_size, 2 ** env_size])
     return np.dot(reshaped_state, reshaped_state.conjugate().transpose())
 
 
-def reduced_density_op(N, sys, vec):
+def reduced_density_op_arbitraty_sys(N, sys, vec):
     """Creates the density matrix using a state. Useful for calculating
     non-bipartite i.e. arbitrary cut entanglement entropy
 
     Parameters:
     --------------------
     N: int
-        total system size
+        size of lattice
     sys: list
-        sites along the chain that belong to system A, the system we
-        are interested in
+        the indices of the sites that is considered part of the system
     vec: numpy.array
         a column vector that has to be dense
     j: int/float
@@ -147,11 +156,11 @@ def reduced_density_op(N, sys, vec):
 
     Returns
     --------------------
-    Numpy array
+    ρ: numpy.array
     """
     def generate_binlists(partition_len):
         configs = [format(i, '0{}b'.format(partition_len)) for i in
-                    range(2 ** partition_len - 1, -1, -1)]
+                   range(2 ** partition_len - 1, -1, -1)]
         configs = map(list, configs)
         return [list(map(int, config)) for config in configs]
 
