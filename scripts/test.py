@@ -1,5 +1,5 @@
 import numpy as np
-from spinsys.hamiltonians.triangular_lattice_model import hamiltonian, SiteVector
+from hamiltonians.triangular_lattice_model import hamiltonian, SiteVector
 from scipy import sparse
 import spinsys
 
