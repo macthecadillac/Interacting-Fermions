@@ -1,6 +1,6 @@
 ## Dependencies
 
-This library depends on numpy and scipy.
+This code depends on numpy and scipy.
 
 ## Setting up
 
