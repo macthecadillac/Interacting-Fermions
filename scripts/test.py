@@ -36,7 +36,7 @@ print('\n')
 state = state.toarray().flatten()
 # syss = [[0, 1], [0, 4], [1, 2], [1, 5], [5, 6], [5, 9]]
 for sys in syss:
-    reduced_ρ = spinsys.half.reduced_density_op(N, sys, state)
+    reduced_ρ = spinsys.half.reduced_density_op_arbitrary_sys(N, sys, state)
     entropy = spinsys.quantities.von_neumann_entropy(reduced_ρ)
     print('System: {},  \tentropy: {}'.format(sys, entropy))
 print('Total number of bonds = {}'.format(len(bonds)))

@@ -11,7 +11,7 @@ Functions included:
     generate_complete_basis
     full_matrix
     expand_and_reorder
-    reduced_density_op_arbitraty_sys
+    reduced_density_op_arbitrary_sys
     reduced_density_op
     block_diagonalization_transformation
 """
@@ -138,7 +138,7 @@ def reduced_density_op(N, sys_size, vec):
     return np.dot(reshaped_state, reshaped_state.conjugate().transpose())
 
 
-def reduced_density_op_arbitraty_sys(N, sys, vec):
+def reduced_density_op_arbitrary_sys(N, sys, vec):
     """Creates the density matrix using a state. Useful for calculating
     non-bipartite i.e. arbitrary cut entanglement entropy
 
@@ -189,7 +189,7 @@ def reduced_density_op_arbitraty_sys(N, sys, vec):
         # Indices indicating the new locations of the vector elements.
         # orig_ind = range(hilbert_dim)
         new_ind = [hilbert_dim - utils.misc.bin_to_dec(b) - 1
-                   for i, b in enumerate(reordered_basis)]
+                   for b in reordered_basis]
         return new_ind
 
     syslen = len(sys)
