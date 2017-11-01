@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import sparse
-from spinsys import constructors, half
+from spinsys import constructors, half, utils
 from hamiltonians.triangular_lattice_model import hamiltonian, SiteVector
 
 
@@ -26,7 +26,12 @@ N = Nx * Ny
 H = hamiltonian(Nx, Ny)
 E, ψ0 = sparse.linalg.eigsh(H, k=1, which='SA')
 ψ0 = sparse.csc_matrix(ψ0)
-for kx in np.linspace(-np.pi, np.pi, Nx, endpoint=False):
-    for ky in np.linspace(-np.pi, np.pi, Ny, endpoint=False):
+nkx = nky = 1000
+data = np.empty((nkx, nky), dtype=complex)
+t = utils.timer.Timer(nkx * nky)
+for i, kx in enumerate(np.linspace(-np.pi, np.pi, nkx, endpoint=False)):
+    for j, ky in enumerate(np.linspace(-np.pi, np.pi, nky, endpoint=False)):
         s = structural_factor(N, kx, ky, ψ0)
-        print(s)
+        data[i, j] = s
+        t.progress()
+np.savetxt('./structural_factor.txt', data)
