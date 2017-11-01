@@ -124,6 +124,10 @@ class SiteVector:
     def lattice_index(self):
         return self.x + self.Nx * self.y
 
+    @property
+    def coord(self):
+        return (self.x, self.y)
+
 
 class PeriodicBCSiteVector(SiteVector):
 
