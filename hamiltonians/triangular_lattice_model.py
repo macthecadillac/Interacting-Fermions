@@ -1,8 +1,8 @@
 import numpy as np
-import spinsys
+from spinsys import constructors, half
 
 
-class SiteVector(spinsys.constructors.PeriodicBCSiteVector):
+class SiteVector(constructors.PeriodicBCSiteVector):
 
     def __init__(self, ordered_pair, Nx, Ny):
         super().__init__(ordered_pair, Nx, Ny)
@@ -25,13 +25,13 @@ class SiteVector(spinsys.constructors.PeriodicBCSiteVector):
 def hamiltonian(Nx, Ny, J_pm=1, J_z=1, J_ppmm=1, J_pmz=1):
     N = Nx * Ny
 
-    σ_p = spinsys.constructors.raising()
-    σ_m = spinsys.constructors.lowering()
-    σz = spinsys.constructors.sigmaz()
+    σ_p = constructors.raising()
+    σ_m = constructors.lowering()
+    σz = constructors.sigmaz()
 
-    p_mats = [spinsys.half.full_matrix(σ_p, k, N) for k in range(N)]
-    m_mats = [spinsys.half.full_matrix(σ_m, k, N) for k in range(N)]
-    z_mats = [spinsys.half.full_matrix(σz, k, N) for k in range(N)]
+    p_mats = [half.full_matrix(σ_p, k, N) for k in range(N)]
+    m_mats = [half.full_matrix(σ_m, k, N) for k in range(N)]
+    z_mats = [half.full_matrix(σz, k, N) for k in range(N)]
 
     # Permute through all the nearest neighbor coupling bonds
     bonds = []
