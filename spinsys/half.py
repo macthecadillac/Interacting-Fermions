@@ -240,10 +240,10 @@ def block_diagonalization_transformation(N):
     return sparse.csc_matrix((data, (row_ind, col_ind)), shape=(dim, dim))
 
 
-def translation_operator(Nx, Ny, direction='x'):
+def translation_operator(Nx, Ny, direction='x+'):
     """Generates the translation operator for 2-D spin systems. The
-    does not exploit any conserved quantum numbers and therefore
-    spans the full Hilbert space.
+    does not exploit any conserved quantum numbers and as such spans
+    the full Hilbert space.
 
     Parameters:
     --------------------
@@ -252,7 +252,9 @@ def translation_operator(Nx, Ny, direction='x'):
     Ny: int
         length of the system along the y direction
     direction: str
-        the direction along which the system is to be translated
+        the direction along which the system is to be translated.
+        choices are 'x+', 'x-', 'y+', 'y-' which correspond to the
+        positive or negative directions along the x and y axes.
 
     Returns:
     --------------------
@@ -268,12 +270,18 @@ def translation_operator(Nx, Ny, direction='x'):
     new_basis = []
     # Perform the translation. Move the last site to the very left and
     #  move every other site down one site to the right
-    if direction == 'x':
+    if direction == 'x+':
         for basis_state in partitioned:
             new_basis.append([chunk[-1] + chunk[:-1] for chunk in basis_state])
-    elif direction == 'y':
+    elif direction == 'x-':
+        for basis_state in partitioned:
+            new_basis.append([chunk[1:] + chunk[0] for chunk in basis_state])
+    elif direction == 'y+':
         for basis_state in partitioned:
             new_basis.append([basis_state[-1]] + basis_state[:-1])
+    elif direction == 'y-':
+        for basis_state in partitioned:
+            new_basis.append(basis_state[1:] + [basis_state[0]])
     # Convert the 1's and 0's into decimal, which are our new indices
     #  along the columns
     new_basis = map(lambda x: ''.join(x), new_basis)
