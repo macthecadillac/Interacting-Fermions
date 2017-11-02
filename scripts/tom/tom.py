@@ -8,11 +8,11 @@ from spinsys.quantities import adj_gap_ratio as agr
 
 
 ### Globals ###
-N = 14
+N = 12
 c = np.sqrt(2) - 1
-edens = [0.5, 0.3, 0.3]
+edens = [0.4]
 num_phi = 1000
-num_eigs = 200 # {N:E}: {10,30}, {12, 100}, {14, 200}, {16, 200}
+num_eigs = 100 # {N:E}: {10,30}, {12, 100}, {14, 200}, {16, 200}
 print('\n  N = {}'.format(N))
 dhs = [0.15] * 16 + [0.2] * 13 + [0.5] * 2 + [1] * 2  # increments of h
 hs = np.cumsum(dhs)                     # array of h vals
