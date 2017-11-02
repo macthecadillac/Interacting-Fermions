@@ -14,6 +14,7 @@ Functions included:
     reduced_density_op_arbitrary_sys
     reduced_density_op
     block_diagonalization_transformation
+    translation_operator
 """
 
 import functools
@@ -237,3 +238,52 @@ def block_diagonalization_transformation(N):
             current_pos += 1
         offset += blksize
     return sparse.csc_matrix((data, (row_ind, col_ind)), shape=(dim, dim))
+
+
+def translation_operator(Nx, Ny, direction='x+'):
+    """Generates the translation operator for 2-D spin systems. The
+    does not exploit any conserved quantum numbers and as such spans
+    the full Hilbert space.
+
+    Parameters:
+    --------------------
+    Nx: int
+        length of the system along the x direction
+    Ny: int
+        length of the system along the y direction
+    direction: str
+        the direction along which the system is to be translated.
+        choices are 'x+', 'x-', 'y+', 'y-' which correspond to the
+        positive or negative directions along the x and y axes.
+
+    Returns:
+    --------------------
+    T: scipy.sparse.csc_matrix
+    """
+    N = Nx * Ny
+    format_options = '0{}b'.format(N)
+    old_ind = list(range(2 ** N))
+    original_basis = map(lambda x: format(x, format_options), old_ind)
+    # Partition the indices into separate legs (along x-direction)
+    partitioned = ([i[y * Nx:(y + 1) * Nx] for y in range(Ny)]
+                   for i in original_basis)
+    new_basis = []
+    # Perform the translation. Move the last site to the very left and
+    #  move every other site down one site to the right
+    if direction == 'x+':
+        for basis_state in partitioned:
+            new_basis.append([chunk[-1] + chunk[:-1] for chunk in basis_state])
+    elif direction == 'x-':
+        for basis_state in partitioned:
+            new_basis.append([chunk[1:] + chunk[0] for chunk in basis_state])
+    elif direction == 'y+':
+        for basis_state in partitioned:
+            new_basis.append([basis_state[-1]] + basis_state[:-1])
+    elif direction == 'y-':
+        for basis_state in partitioned:
+            new_basis.append(basis_state[1:] + [basis_state[0]])
+    # Convert the 1's and 0's into decimal, which are our new indices
+    #  along the columns
+    new_basis = map(lambda x: ''.join(x), new_basis)
+    new_ind = list(map(lambda x: int(x, 2), new_basis))
+    return sparse.csc_matrix((np.ones(2 ** N), (old_ind, new_ind)))
