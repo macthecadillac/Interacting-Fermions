@@ -17,7 +17,6 @@ Functions included:
     translation_operator
 """
 
-import functools
 import numpy as np
 from scipy import misc, sparse
 from spinsys import utils
@@ -158,14 +157,14 @@ def reduced_density_op_arbitrary_sys(N, sys, vec):
     --------------------
     ρ: numpy.array
     """
-    @functools.lru_cache(maxsize=None)
+    @utils.cache.cache_to_ram
     def generate_binlists(partition_len):
         configs = [format(i, '0{}b'.format(partition_len)) for i in
                    range(2 ** partition_len - 1, -1, -1)]
         configs = map(list, configs)
         return [list(map(int, config)) for config in configs]
 
-    @functools.lru_cache(maxsize=None)
+    @utils.cache.cache_to_ram
     def reorder_basis_dict(N, sysstr):
         """Returns a dictionary that maps the old ordering of the sites
         to the new
