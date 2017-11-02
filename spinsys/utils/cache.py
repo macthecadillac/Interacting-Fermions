@@ -63,3 +63,21 @@ def matcache(function):
                             allow_pickle=False)
                 return result
     return wrapper
+
+
+def cache_ram(function):
+    """Wrapper for caching results into the Globals dictionary.
+    Works like functools.lru_cache but it also works on private
+    (nested) functions which lru_cache does not. Currently does
+    not have LRU limits.
+    """
+    @functools.wraps(function)
+    def wrapper(*args, **kargs):
+        dict_key = '{}{}'.format(function.__name__, (args, kargs))
+        try:
+            result = Globals[dict_key]
+        except KeyError:
+            result = function(*args, **kargs)
+            Globals[dict_key] = result
+        return result
+    return wrapper
