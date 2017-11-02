@@ -23,7 +23,7 @@ class SiteVector(constructors.PeriodicBCSiteVector):
             return 2 * np.pi / 3
 
 
-def hamiltonian(Nx, Ny, J_pm=1, J_z=1, J_ppmm=1, J_pmz=1):
+def hamiltonian(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0):
     @utils.cache.cache_to_ram
     def pieces(Nx, Ny):
         """Generate the reusable pieces of the hamiltonian"""
