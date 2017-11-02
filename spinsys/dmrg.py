@@ -36,7 +36,7 @@ class DMRG():
     def __init__(self, target_m, L, H):
         self.m = target_m
         self.L = L
-        self.H = H()
+        self.H = H
 
     def transform(self, U, A):
         return U.T.conjugate().dot(A).dot(U)
@@ -85,7 +85,7 @@ class DMRG():
         return erg, trunc_err
 
 
-class Hamiltonians(abc.ABC):
+class Hamiltonian(abc.ABC):
 
     """Template for Hamiltonians to work with the DMRG class
 
@@ -98,7 +98,6 @@ class Hamiltonians(abc.ABC):
     >>>        self.generators = {'x': sigmax(), 'y': sigmay(), 'z': sigmaz()}
     >>>
     >>>    def initialize_storage(self):
-    >>>        init_block = csc_matrix(([], ([], [])), shape=[2, 2])
     >>>        init_block = csc_matrix(([], ([], [])), shape=[2, 2])
     >>>        init_ops = self.generators
     >>>        self.storage = Storage(init_block, init_block, init_ops)
