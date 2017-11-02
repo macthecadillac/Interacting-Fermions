@@ -65,7 +65,7 @@ def matcache(function):
     return wrapper
 
 
-def cache_ram(function):
+def cache_to_ram(function):
     """Wrapper for caching results into the Globals dictionary.
     Works like functools.lru_cache but it also works on private
     (nested) functions which lru_cache does not. Currently does
