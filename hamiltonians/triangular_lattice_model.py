@@ -1,6 +1,7 @@
+import copy
 import numpy as np
 from scipy import sparse
-from spinsys import constructors, half, dmrg, utils
+from spinsys import constructors, half, dmrg, utils, exceptions
 
 
 class SiteVector(constructors.PeriodicBCSiteVector):
@@ -21,6 +22,47 @@ class SiteVector(constructors.PeriodicBCSiteVector):
                 return 0
         else:
             return 2 * np.pi / 3
+
+
+class SemiPeriodicBCSiteVector(SiteVector):
+
+    """A version of SiteVector that is periodic only along the y
+    direction
+    """
+
+    def __init__(self, ordered_pair, Nx, Ny):
+        super().__init__(ordered_pair, Nx, Ny)
+
+    def diff(self, other):
+        """Finds the shortest distance from this site to the other"""
+        Δx = self.x - other.x
+        Δy = self.y - other.y
+        return (Δx, Δy)
+
+    def yhop(self, stride):
+        new_vec = copy.copy(self)
+        new_y = self.y + stride
+        if new_y // self.Ny == self.x // self.Ny:
+            new_vec.y = new_y
+        else:
+            raise exceptions.OutOfBoundsError("Hopping off the lattice")
+        return new_vec
+
+    @property
+    def neighboring_sites(self):
+        neighbors = []
+        funcs = [self.xhop, self.yhop]
+        for Δ in [1, -1]:
+            for func in funcs:
+                try:
+                    neighbors.append(func(Δ).lattice_index)
+                except exceptions.OutOfBoundsError:
+                    continue
+            try:
+                neighbors.append(self.xhop(Δ).yhop(-Δ).lattice_index)
+            except exceptions.OutOfBoundsError:
+                continue
+        return neighbors
 
 
 def hamiltonian(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0):
@@ -67,21 +109,49 @@ def hamiltonian(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0):
 
 class DMRG_Hamiltonian(dmrg.Hamiltonian):
 
-    def __init__(self):
+    def __init__(self, Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0):
         super().__init__()
         self.generators = {
             '+': constructors.raising(),
             '-': constructors.lowering(),
             'z': constructors.sigmaz()
         }
+        self.J_pm = J_pm
+        self.J_z = J_z
+        self.J_ppmm = J_ppmm
+        self.J_pmz = J_pmz
+        self.bonds = []
 
     def initialize_storage(self):
         init_block = sparse.csc_matrix(([], ([], [])), shape=[2, 2])
         init_ops = self.generators
         self.storage = dmrg.Storage(init_block, init_block, init_ops)
 
-    def newsite_ops(self):
-        pass
+    def newsite_ops(self, size):
+        return dict((i, sparse.kron(sparse.eye(size // 2), self.generators[i]))
+                    for i in self.generators.keys())
 
-    def block_newsite_interaction(self):
-        pass
+    def block_newsite_interaction(self, block_key):
+        block_side, curr_site = block_key
+        site = SemiPeriodicBCSiteVector.from_index(curr_site, self.Nx, self.Ny)
+        if block_side == 'l':
+            neighbors = [i for i in site.neighboring_sites if i < curr_site]
+        else:
+            neighbors = [i for i in site.neighboring_sites if i > curr_site]
+
+        # TODO: Unfinished
+        for i in neighbors:
+            key = (block_side, i)
+            block_ops = self.storage.get_item(key).ops
+            site_ops = self.generators
+            H_pm_new = sparse.kron(block_ops['+'], site_ops['-']) + \
+                sparse.kron(block_ops['-'], site_ops['+'])
+            H_z_new = sparse.kron(block_ops['z'], site_ops['z'])
+            H_ppmm_new = sparse.kron(block_ops['+'], site_ops['+']) + \
+                sparse.kron(block_ops['-'], site_ops['-'])
+            H_pmz_new = sparse.kron(block_ops['z'], site_ops['+']) + \
+                sparse.kron(block_ops['z'], site_ops['-']) + \
+                sparse.kron(block_ops['+'], site_ops['z']) + \
+                sparse.kron(block_ops['-'], site_ops['z'])
+        return self.J_pm * H_pm_new + self.J_z * H_z_new + \
+            self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
