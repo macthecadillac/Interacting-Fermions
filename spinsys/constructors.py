@@ -128,6 +128,12 @@ class SiteVector:
     def coord(self):
         return (self.x, self.y)
 
+    @classmethod
+    def from_index(cls, index, Nx, Ny):
+        x = index % Nx
+        y = index // Nx
+        return cls((x, y), Nx, Ny)
+
 
 class PeriodicBCSiteVector(SiteVector):
 
