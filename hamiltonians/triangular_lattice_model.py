@@ -26,7 +26,7 @@ class SiteVector(constructors.PeriodicBCSiteVector):
 
 class SemiPeriodicBCSiteVector(SiteVector):
 
-    """A version of SiteVector that is periodic only along the y
+    """A version of SiteVector that is periodic only along the x
     direction
     """
 
@@ -66,6 +66,28 @@ class SemiPeriodicBCSiteVector(SiteVector):
 
 
 def hamiltonian(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0):
+    """Generates hamiltonian for the triangular lattice model. No
+    optimizations built in.
+
+    Parameters
+    --------------------
+    Nx: int
+        number of sites along the x-direction
+    Ny: int
+        number of sites along the y-direction
+    J_pm: int
+        the J_+- parameter
+    J_z: int
+        the J_z parameter
+    J_ppmm: int
+        the J_++-- parameter
+    J_pmz: int
+        the J_+-z parameter
+
+    Returns
+    --------------------
+    H: scipy.sparse.csc_matrix
+    """
     @utils.cache.cache_to_ram
     def pieces(Nx, Ny):
         """Generate the reusable pieces of the hamiltonian"""
@@ -93,34 +115,46 @@ def hamiltonian(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0):
             site1, site2 = bond
             i, j = site1.lattice_index, site2.lattice_index
             γ = np.exp(1j * site1.angle_with(site2))
+
             H_pm += p_mats[i].dot(m_mats[j]) + m_mats[i].dot(p_mats[j])
+
             H_z += z_mats[i].dot(z_mats[j])
-            H_ppmm += γ * p_mats[i].dot(p_mats[j]) + \
+
+            H_ppmm += \
+                γ * p_mats[i].dot(p_mats[j]) + \
                 γ.conj() * m_mats[i].dot(m_mats[j])
+
             H_pmz += 1j * (γ.conj() * z_mats[i].dot(p_mats[j]) -
                            γ * z_mats[i].dot(m_mats[j]) +
                            γ.conj() * p_mats[i].dot(z_mats[j]) -
                            γ * m_mats[i].dot(z_mats[j]))
+
         return H_pm, H_z, H_ppmm, H_pmz
 
     H_pm, H_z, H_ppmm, H_pmz = pieces(Nx, Ny)
     return J_pm * H_pm + J_z * H_z + J_ppmm * H_ppmm + J_pmz * H_pmz
 
 
+def hamiltonian_Tx():
+    pass
+
+
 class DMRG_Hamiltonian(dmrg.Hamiltonian):
 
     def __init__(self, Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0):
-        super().__init__()
         self.generators = {
             '+': constructors.raising(),
             '-': constructors.lowering(),
             'z': constructors.sigmaz()
         }
+        self.N = Nx * Ny
+        self.Nx = Nx
+        self.Ny = Ny
         self.J_pm = J_pm
         self.J_z = J_z
         self.J_ppmm = J_ppmm
         self.J_pmz = J_pmz
-        self.bonds = []
+        super().__init__()
 
     def initialize_storage(self):
         init_block = sparse.csc_matrix(([], ([], [])), shape=[2, 2])
@@ -131,27 +165,33 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
         return dict((i, sparse.kron(sparse.eye(size // 2), self.generators[i]))
                     for i in self.generators.keys())
 
+    # TODO: Inconsistent shapes error at runtime
     def block_newsite_interaction(self, block_key):
         block_side, curr_site = block_key
         site = SemiPeriodicBCSiteVector.from_index(curr_site, self.Nx, self.Ny)
-        if block_side == 'l':
-            neighbors = [i for i in site.neighboring_sites if i < curr_site]
-        else:
-            neighbors = [i for i in site.neighboring_sites if i > curr_site]
+        neighbors = [i for i in site.neighboring_sites if i < curr_site]
 
-        # TODO: Unfinished
+        H_pm_new = H_z_new = H_ppmm_new = H_pmz_new = sparse.csc_matrix(np.zeros((2, 2)))
         for i in neighbors:
-            key = (block_side, i)
+            key = (block_side, i + 1)
             block_ops = self.storage.get_item(key).ops
             site_ops = self.generators
-            H_pm_new = sparse.kron(block_ops['+'], site_ops['-']) + \
+
+            H_pm_new += \
+                sparse.kron(block_ops['+'], site_ops['-']) + \
                 sparse.kron(block_ops['-'], site_ops['+'])
-            H_z_new = sparse.kron(block_ops['z'], site_ops['z'])
-            H_ppmm_new = sparse.kron(block_ops['+'], site_ops['+']) + \
+
+            H_z_new += sparse.kron(block_ops['z'], site_ops['z'])
+
+            H_ppmm_new += \
+                sparse.kron(block_ops['+'], site_ops['+']) + \
                 sparse.kron(block_ops['-'], site_ops['-'])
-            H_pmz_new = sparse.kron(block_ops['z'], site_ops['+']) + \
+
+            H_pmz_new += \
+                sparse.kron(block_ops['z'], site_ops['+']) + \
                 sparse.kron(block_ops['z'], site_ops['-']) + \
                 sparse.kron(block_ops['+'], site_ops['z']) + \
                 sparse.kron(block_ops['-'], site_ops['z'])
+
         return self.J_pm * H_pm_new + self.J_z * H_z_new + \
             self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
