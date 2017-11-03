@@ -113,7 +113,7 @@ class Hamiltonian(abc.ABC):
     """
 
     def __init__(self):
-        self.storage = []
+        self.initialize_storage()
 
     @abc.abstractmethod
     def initialize_storage(self):
@@ -128,23 +128,21 @@ class Hamiltonian(abc.ABC):
         pass
 
 
-def finite_system_dmrg(hamiltonian, target_m, L, sweeps=2,
-                       print_intermediate_results=False):
+def finite_system_dmrg(hamiltonian, target_m, L, sweeps=2, debug=False):
 
     """Performs a finite system DMRG on a given system.
 
     Parameters:
     --------------------
     hamiltonian: Hamiltonian
-        A class (not an instance thereof) that inherits from the
-        Hamiltonian base class.
+        An instantiated class that inherits from the Hamiltonian base class.
     target_m: int
         The number of states to keep during truncation
     L: int
         The final system size
     sweeps: int, optional
         The number of sweeps to perform. Defaults to 2
-    print_intermediate_results: bool, optional
+    debug: bool, optional
         If enabled, eigenenergies of the ground state will be printed
         after every step of the calculation.
     """
@@ -158,7 +156,7 @@ def finite_system_dmrg(hamiltonian, target_m, L, sweeps=2,
         env_block_key = (env_side, env_len)
         grow = True if sys_len < L // 2 else False
         erg, trunc_err = dmrg.step(sys_block_key, env_block_key, grow)
-        if print_intermediate_results:
+        if debug:
             print('sys', sys_len, 'env', env_len, erg[0], trunc_err)
     for sweep in range(sweeps):
         for _ in range(2):  # two half sweeps in one full sweep
@@ -168,5 +166,5 @@ def finite_system_dmrg(hamiltonian, target_m, L, sweeps=2,
                 sys_block_key = (sys_side, sys_len)
                 env_block_key = (env_side, env_len)
                 erg, trunc_err = dmrg.step(sys_block_key, env_block_key)
-                if print_intermediate_results:
+                if debug:
                     print('sys', sys_len, 'env', env_len, erg[0], trunc_err)
