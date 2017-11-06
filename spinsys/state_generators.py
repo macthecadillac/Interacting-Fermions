@@ -8,7 +8,7 @@ for exact terms and conditions.
 
 import numpy as np
 from scipy.sparse.linalg import eigsh, ArpackNoConvergence
-from spinsys.exceptions import NoConvergence, StateNotFoundError
+from spinsys.exceptions import NoConvergence, NotFoundError
 from spinsys import half
 
 
@@ -70,7 +70,7 @@ def generate_product_state(H, enden=0.5, tol=1e-6):
         if abs(energy_density(E_exp, Emin, Emax) - enden) < tol:
             break
     else:
-        raise StateNotFoundError
+        raise NotFoundError
     product_state = np.zeros(veclen)
     product_state[i] = 1
     return product_state

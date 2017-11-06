@@ -10,7 +10,7 @@ This module provides custom exception classes for more convenient
 exception handling. The following classes are included:
     NoConvergence
     SizeMismatchError
-    StateNotFoundError
+    NotFoundError
     OutOfBoundsError
 """
 
@@ -23,7 +23,7 @@ class SizeMismatchError(Exception):
     pass
 
 
-class StateNotFoundError(Exception):
+class NotFoundError(Exception):
     pass
 
 
