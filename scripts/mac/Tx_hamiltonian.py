@@ -18,12 +18,43 @@ def bond_list(Nx, Ny):
     return bonds
 
 
-def zero_momentum_states(N):
-    def genfunc(i):
+# def roll_state_x(state, Nx, Ny):
+#     maxdec = 2 ** Nx - 1
+#     # slice state into Ny equal slices
+#     n = np.arange(0, Nx * Ny, Nx)
+#     s = state % (2 ** (n + Nx)) // (2 ** n)
+#     s = (s * 2) % maxdec
+#     return (2 ** np.arange(0, Nx * Ny, Nx)).dot(s)
+
+
+def roll_state_x(state, Nx, Ny):
+    # slice state into Ny equal slices
+    s = np.array([(state % (2 ** (n + Nx))) // (2 ** n) for n in range(0, Nx * Ny, Nx)])
+    print(s)
+    maxdec = 2 ** Nx - 1
+    s = (s * 2) % maxdec
+    return (2 ** np.arange(0, Nx * Ny, Nx)).dot(s)
+
+
+print(format(7, '06b'))
+x = roll_state_x(7, 3, 4)
+print(format(x, '06b'))
+
+
+def roll_state_y(state, Nx, Ny):
+    n = 2 ** (Nx * (Ny - 1))
+    head = state // n
+    return state % n * (2 ** Nx) + head
+
+
+def zero_momentum_states(Nx, Ny):
+
+    def find_T_invariant_set(i):
         bloch_func = [i]
         j = i
         while True:
-            j = (j * 2) % maxdec
+            print(i, j)
+            j = roll_state_x(j, Nx, Ny)
             if not j == i:
                 bloch_func.append(j)
                 sieve[j] = False
@@ -36,13 +67,16 @@ def zero_momentum_states(N):
         except KeyError:
             states[l] = [bloch_func]
 
+    N = Nx * Ny
     sieve = np.ones(2 ** N)
-    sieve[0] = sieve[-1] = 0
+    # sieve[0] = sieve[-1] = 0
+    invariant_states = np.kron(np.arange(Nx), 3)
+    sieve[invariant_states] = 0
     maxdec = 2 ** N - 1
     states = {1: [[0], [maxdec]]}
     for i in range(maxdec + 1):
         if sieve[i]:
-            genfunc(i)
+            find_T_invariant_set(i)
     return states
 
 
@@ -163,8 +197,13 @@ def H_ppmm_elements(N, k, i, l):
     j, j_len = dec_to_ind[connected_state]
 
 
-# N = 6
-# states = zero_momentum_states(N)
+Nx = 2
+Ny = 3
+
+print(roll_state_x(8, Nx, Ny))
+
+# N = Nx * Ny
+# states = zero_momentum_states(Nx, Ny)
 # totlen = 0
 # for key, val in states.items():
 #     print('\nlength = {}\ncount = {}\n'.format(key, len(val)))
@@ -174,6 +213,7 @@ def H_ppmm_elements(N, k, i, l):
 # print('\nSanity check. Total number of product states:', totlen)
 # print('Total number of zero momentum states:{}\n'
 #       .format(len(list(chain(*states.values())))))
+
 # print('--------------------------------------------------')
 # states = all_bloch_states(N)
 # for key, val in states.items():
@@ -192,3 +232,7 @@ def H_ppmm_elements(N, k, i, l):
 # i = 2
 # val, j = H_pm_elements(N, k, i, 1)
 # print(val, j)
+
+# s = int('0110100011100110', 2)
+# print(format(s, '016b'))
+# print(format(roll_state_to_rightx(s, 8, 2), '016b'))
