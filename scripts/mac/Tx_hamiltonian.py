@@ -1,9 +1,12 @@
 import fractions
 from itertools import chain
 import numpy as np
-from spinsys.exceptions import NotFoundError
+from spinsys import exceptions, utils
 import functools
 from hamiltonians.triangular_lattice_model import SiteVector
+from collections import namedtuple
+
+Shape = namedtuple('shape', 'x, y')
 
 
 def bond_list(Nx, Ny):
@@ -18,105 +21,133 @@ def bond_list(Nx, Ny):
     return bonds
 
 
-# def roll_state_x(state, Nx, Ny):
-#     maxdec = 2 ** Nx - 1
-#     # slice state into Ny equal slices
-#     n = np.arange(0, Nx * Ny, Nx)
-#     s = state % (2 ** (n + Nx)) // (2 ** n)
-#     s = (s * 2) % maxdec
-#     return (2 ** np.arange(0, Nx * Ny, Nx)).dot(s)
+def roll_x(state, Nx, Ny):
+    """roll to the right"""
+    @utils.cache.cache_to_ram
+    def xcache(Nx, Ny):
+        n = np.arange(0, Nx * Ny, Nx)
+        return (2 ** (n + Nx)), 2 ** n, 2 ** Nx, 2 ** (Nx - 1), 2 ** n
 
-
-def roll_state_x(state, Nx, Ny):
     # slice state into Ny equal slices
-    s = np.array([(state % (2 ** (n + Nx))) // (2 ** n) for n in range(0, Nx * Ny, Nx)])
-    print(s)
-    maxdec = 2 ** Nx - 1
-    s = (s * 2) % maxdec
-    return (2 ** np.arange(0, Nx * Ny, Nx)).dot(s)
+    a, b, c, d, e = xcache(Nx, Ny)
+    s = state % a // b
+    s = (s * 2) % c + s // d
+    return (e).dot(s)
 
 
-print(format(7, '06b'))
-x = roll_state_x(7, 3, 4)
-print(format(x, '06b'))
+def roll_y(state, Nx, Ny):
+    """roll up"""
+    @utils.cache.cache_to_ram
+    def ycache(Nx, Ny):
+        return 2 ** Nx, 2 ** (Nx * (Ny - 1))
+
+    xdim, pred_totdim = ycache(Nx, Ny)
+    tail = state % xdim
+    return state // xdim + tail * pred_totdim
 
 
-def roll_state_y(state, Nx, Ny):
-    n = 2 ** (Nx * (Ny - 1))
-    head = state // n
-    return state % n * (2 ** Nx) + head
-
-
+@functools.lru_cache(maxsize=None)
 def zero_momentum_states(Nx, Ny):
-
     def find_T_invariant_set(i):
-        bloch_func = [i]
+        b = [i]
         j = i
         while True:
-            print(i, j)
-            j = roll_state_x(j, Nx, Ny)
+            j = roll_x(j, Nx, Ny)
             if not j == i:
-                bloch_func.append(j)
-                sieve[j] = False
+                b.append(j)
+                sieve[j] = 0
             else:
                 break
-        bloch_func.sort()
+        b = np.array(b)
+        bloch_func = [b]
+        u = b.copy()
+        while True:
+            u = roll_y(u, Nx, Ny)
+            if not np.sort(u)[0] == np.sort(b)[0]:
+                bloch_func.append(u)
+                sieve[u] = 0
+            else:
+                break
+        bloch_func = np.array(bloch_func, dtype=np.int64)
         try:
-            l = len(bloch_func)
-            states[l].append(bloch_func)
+            shape = bloch_func.shape
+            s = Shape(x=shape[1], y=shape[0])
+            states[s].append(bloch_func)
         except KeyError:
-            states[l] = [bloch_func]
+            states[s] = [bloch_func]
 
     N = Nx * Ny
-    sieve = np.ones(2 ** N)
-    # sieve[0] = sieve[-1] = 0
-    invariant_states = np.kron(np.arange(Nx), 3)
-    sieve[invariant_states] = 0
+    sieve = np.ones(2 ** N, dtype=np.int8)
+    sieve[0] = sieve[-1] = 0
     maxdec = 2 ** N - 1
-    states = {1: [[0], [maxdec]]}
+    states = {Shape(1, 1): [np.array([[0]]), np.array([[maxdec]])]}
     for i in range(maxdec + 1):
         if sieve[i]:
             find_T_invariant_set(i)
     return states
 
 
-def bloch_states(N, k):
-    zero_k_states = zero_momentum_states(N)
-    if k > N // 2:
-        raise NotFoundError
+def bloch_states(Nx, Ny, kx, ky):
+    def check_bounds(N, k):
+        return k > 0 or (k < 0 and ((not -k == N // 2) or (not N % 2 == 0)))
 
-    if k == 0:
+    zero_k_states = zero_momentum_states(Nx, Ny)
+    if kx > Nx // 2 or ky > Ny // 2:
+        raise exceptions.NotFoundError
+
+    if kx == 0 and ky == 0:
         states = list(chain(*zero_k_states.values()))
-    elif k > 0 or (k < 0 and ((not -k == N // 2) or (not N % 2 == 0))):
+    elif kx == 0:
+        if check_bounds(Ny, ky):
+            states = []
+            for s in zero_k_states.keys():
+                period = Ny // fractions.gcd(Ny, ky)
+                if s.y % period == 0:
+                    states.extend(zero_k_states[s])
+        else:
+            raise exceptions.NotFoundError
+    elif ky == 0:
+        if check_bounds(Nx, kx):
+            states = []
+            for s in zero_k_states.keys():
+                period = Nx // fractions.gcd(Nx, kx)
+                if s.x % period == 0:
+                    states.extend(zero_k_states[s])
+        else:
+            raise exceptions.NotFoundError
+    elif check_bounds(Nx, kx) and check_bounds(Ny, ky):
         states = []
-        for l in zero_k_states.keys():
-            period = N // fractions.gcd(N, k)
-            if l % period == 0:
-                states.extend(zero_k_states[l])
+        for s in zero_k_states.keys():
+            periodx = Nx // fractions.gcd(Nx, kx)
+            periody = Ny // fractions.gcd(Ny, ky)
+            if s.x % periodx == 0 and s.y % periody == 0:
+                states.extend(zero_k_states[s])
     else:
-        raise NotFoundError
+        raise exceptions.NotFoundError
     return states
 
 
 @functools.lru_cache(maxsize=None)
-def generate_dec_to_ind_dictionary(N, k):
-    states = sorted(bloch_states(N, k))
+def generate_dec_to_ind_dictionary(Nx, Ny, kx, ky):
+    states = bloch_states(Nx, Ny, kx, ky)
     dec_to_ind = {}
     for i, state in enumerate(states):
-        state_len = len(state)
+        state_shape = Shape(x=state.shape[1], y=state.shape[0])
         for num in state:
-            dec_to_ind[num] = (i, state_len)
+            dec_to_ind[num] = (i, state_shape)
     return states, dec_to_ind
 
 
-def all_bloch_states(N):
+def all_bloch_states(Nx, Ny):
     states = {}
-    max_k = N // 2
-    for k in range(-max_k, max_k + 1):
-        try:
-            states[k] = bloch_states(N, k)
-        except NotFoundError:
-            continue
+    max_kx = Nx // 2
+    max_ky = Ny // 2
+    for kx in range(-max_kx, max_kx + 1):
+        for ky in range(-max_ky, max_ky + 1):
+            try:
+                states[(kx, ky)] = bloch_states(Nx, Ny, kx, ky)
+            except exceptions.NotFoundError:
+                continue
     return states
 
 
@@ -193,34 +224,41 @@ def H_ppmm_elements(N, k, i, l):
     elif downs is not None:
         connected_state = state + downs
     else:
-        raise NotFoundError
+        raise exceptions.NotFoundError
     j, j_len = dec_to_ind[connected_state]
 
 
-Nx = 2
-Ny = 3
+Nx = 5
+Ny = 4
 
-print(roll_state_x(8, Nx, Ny))
+# print(roll_x(8, Nx, Ny))
 
-# N = Nx * Ny
-# states = zero_momentum_states(Nx, Ny)
-# totlen = 0
-# for key, val in states.items():
-#     print('\nlength = {}\ncount = {}\n'.format(key, len(val)))
-#     for s in val:
-#         print(s)
-#         totlen += len(s)
-# print('\nSanity check. Total number of product states:', totlen)
-# print('Total number of zero momentum states:{}\n'
-#       .format(len(list(chain(*states.values())))))
+N = Nx * Ny
+states = zero_momentum_states(Nx, Ny)
+totlen = 0
+for key, val in states.items():
+    print('\nlengths = {}\ncount = {}\n'.format(key, len(val)))
+    for s in val:
+        p = []
+        for row in s:
+            p.append(list(map(lambda x: format(x, '0{}b'.format(N)), row)))
+        print(p)
+        # print(s, '\n')
+        totlen += np.prod(s.shape)
+print('\nSanity check. Total number of product states:', totlen)
+print('Total number of zero momentum states: {}\n'
+      .format(len(list(chain(*states.values())))))
 
-# print('--------------------------------------------------')
-# states = all_bloch_states(N)
-# for key, val in states.items():
-#     print('\nk = {}\ncount = {}\n'.format(key, len(val)))
-#     for s in val:
-#         print(s)
-# print('\nTotal number of states:', len(list(chain(*states.values()))))
+print('--------------------------------------------------')
+states = all_bloch_states(Nx, Ny)
+for key, val in states.items():
+    print('\nkx, ky = {}\ncount = {}\n'.format(key, len(val)))
+    # for s in val:
+    #     p = []
+    #     for row in s:
+    #         p.append(list(map(lambda x: format(x, '0{}b'.format(N)), row)))
+    #     print(p)
+print('\nTotal number of states:', len(list(chain(*states.values()))))
 
 # N = 5
 # k = 0
