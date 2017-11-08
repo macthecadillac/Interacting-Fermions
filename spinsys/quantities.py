@@ -13,11 +13,51 @@ Functions included in this module:
     adj_gap_ratio
     von_neumann_entropy
     half_chain_spin_dispersion
+    structural_factor
 """
 
+import functools
+import itertools
 import numpy as np
-import spinsys
+from spinsys import constructors, half, utils
 from spinsys.utils.cache import Globals as G
+
+
+@functools.lru_cache(maxsize=None)
+def _first_half_chain_Sz_op_diagonal(N, curr_j):
+    """Returns the diagonal of the half chain Sz operator.
+    (First half of the chain)
+    """
+    basis_set = half.generate_complete_basis(N, curr_j)[0]
+    conv = {1: 1, 0: -1}         # dict for conversion of 0's to -1's
+    mat_dim = len(basis_set)     # size of the block for the given total <Sz>
+    diagonal = np.empty(mat_dim)
+    for i, basis in enumerate(basis_set):
+        # convert 0's to -1's so the basis configuration would look like
+        #  [-1, -1, 1, 1] instead of [0, 0, 1, 1]
+        basis = [conv[s] for s in basis[: N // 2]]  # half chain total <Sz>
+        diagonal[i] = 0.5 * sum(basis)
+    return diagonal
+
+
+@functools.lru_cache(maxsize=None)
+def _create_z_mats(N):
+    σz = constructors.sigmaz()
+    return [half.full_matrix(σz, k, N) for k in range(N)]
+
+
+@functools.lru_cache(maxsize=None)
+def _gen_all_dR(Nx, Ny):
+    """Generate ordered paris (Ri - Rj) for all i-j combinations"""
+    N = Nx * Ny
+    sites = []
+    pairs = itertools.combinations_with_replacement(range(N), 2)
+    for i, j in pairs:
+        site1 = constructors.PeriodicBCSiteVector.from_index(i, Nx, Ny)
+        site2 = constructors.PeriodicBCSiteVector.from_index(j, Nx, Ny)
+        ΔR = np.array(site1.coord) - np.array(site2.coord)
+        sites.append(ΔR)
+    return sites
 
 
 def adj_gap_ratio(sorted_eigvals):
@@ -65,25 +105,45 @@ def half_chain_spin_dispersion(N, psi, curr_j=0):
           "psi" a vector. Must be 1D numpy array.
     Return: float
     """
-    @spinsys.utils.cache.cache_ram
-    def first_half_chain_Sz_op_diagonal(N, curr_j):
-        """Returns the diagonal of the half chain Sz operator.
-        (First half of the chain)
-        """
-        basis_set = spinsys.half.generate_complete_basis(N, curr_j)[0]
-        conv = {1: 1, 0: -1}         # dict for conversion of 0's to -1's
-        mat_dim = len(basis_set)     # size of the block for the given total <Sz>
-        diagonal = np.empty(mat_dim)
-        for i, basis in enumerate(basis_set):
-            # convert 0's to -1's so the basis configuration would look like
-            #  [-1, -1, 1, 1] instead of [0, 0, 1, 1]
-            basis = [conv[s] for s in basis[: N // 2]]  # half chain total <Sz>
-            diagonal[i] = 0.5 * sum(basis)
-        return diagonal
-
-    tot_Sz_diagonal = first_half_chain_Sz_op_diagonal(N, curr_j)
+    tot_Sz_diagonal = _first_half_chain_Sz_op_diagonal(N, curr_j)
     # product of a diagonal matrix and a vector is the same as element wise
     #  multiplcation of the diagonal of the said matrix with the vector
     Sz_expected = psi.conjugate().dot(tot_Sz_diagonal * psi)
     Sz2_expected = psi.conjugate().dot(tot_Sz_diagonal ** 2 * psi)
     return Sz2_expected - Sz_expected ** 2
+
+
+def structural_factor(Nx, Ny, kx, ky, ψ):
+    """Calculate the structure factor for a given 2D system and state
+
+    Parameters
+    --------------------
+    Nx: int
+        size of system along the x-direction
+    Ny: int
+        size of system along the y-direction
+    kx: float
+        x-direction lattice momentum
+    ky: float
+        y-direction lattice momentum
+    ψ: scipy.sparse.csc_matrix
+        eigenstate of system
+
+    Returns
+    --------------------
+    s: float
+    """
+    @utils.cache.cache_to_ram
+    def _spin_correlation_vals(N, ψ0):
+        Sij = []
+        for i, j in pairs:
+            Sij.append(z_mats[i].dot(z_mats[j]))
+        return np.array([ψ.T.conj().dot(S).dot(ψ)[0, 0] for S in Sij])
+
+    N = Nx * Ny
+    z_mats = _create_z_mats(N)
+    pairs = itertools.combinations_with_replacement(range(N), 2)
+    ΔRs = _gen_all_dR(Nx, Ny)
+    k = np.array([kx, ky])
+    ftrans_factors = np.array([np.exp(-1j * k.dot(vec)) for vec in ΔRs])
+    return 1 / N * ftrans_factors.dot(_spin_correlation_vals(N))
