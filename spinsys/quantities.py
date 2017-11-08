@@ -134,7 +134,7 @@ def structural_factor(Nx, Ny, kx, ky, ψ):
     s: float
     """
     @utils.cache.cache_to_ram
-    def _spin_correlation_vals(N, ψ0):
+    def _spin_correlation_vals(N, ψ):
         Sij = []
         for i, j in pairs:
             Sij.append(z_mats[i].dot(z_mats[j]))
@@ -146,4 +146,4 @@ def structural_factor(Nx, Ny, kx, ky, ψ):
     ΔRs = _gen_all_dR(Nx, Ny)
     k = np.array([kx, ky])
     ftrans_factors = np.array([np.exp(-1j * k.dot(vec)) for vec in ΔRs])
-    return 1 / N * ftrans_factors.dot(_spin_correlation_vals(N))
+    return 1 / N * ftrans_factors.dot(_spin_correlation_vals(N, ψ))
