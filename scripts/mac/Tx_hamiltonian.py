@@ -9,14 +9,25 @@ from hamiltonians.triangular_lattice_model import SiteVector
 Shape = namedtuple('shape', 'x, y')
 
 
+class Bond:
+
+    def __init__(self, site1, site2):
+        self.site1 = site1
+        self.site2 = site2
+        self.indices = (site1, site2)
+
+    def __len__(self):
+        return abs(self.site1.lattice_index - self.site2.lattice_index)
+
+
 def bond_list(Nx, Ny):
     N = Nx * Ny
     bonds = []
     vec = SiteVector((0, 0), Nx, Ny)
     for i in range(N):
-        bonds.append((vec, vec.xhop(1)))
-        bonds.append((vec, vec.yhop(1)))
-        bonds.append((vec, vec.xhop(-1).yhop(1)))
+        bonds.append(Bond(vec, vec.xhop(1)))
+        bonds.append(Bond(vec, vec.yhop(1)))
+        bonds.append(Bond(vec, vec.xhop(-1).yhop(1)))
         vec = vec.next_site()
     return bonds
 
@@ -140,7 +151,7 @@ def bloch_states(Nx, Ny, kx, ky):
 
 
 @functools.lru_cache(maxsize=None)
-def generate_dec_to_ind_dictionary(Nx, Ny, kx, ky):
+def gen_dec_to_ind_dict(Nx, Ny, kx, ky):
     states = bloch_states(Nx, Ny, kx, ky)
     dec_to_ind = {}
     for i, state in enumerate(states):
@@ -201,7 +212,7 @@ def H_z_elements(Nx, Ny, kx, ky, i, l):
     # The last [0] part picks out one particular number from the state since any
     # constituent product state within a Bloch state contains enough information
     # for us to locate/recreate the entire Bloch state
-    state = generate_dec_to_ind_dictionary(Nx, Ny, kx, ky)[0][i][0, 0]
+    state = gen_dec_to_ind_dict(Nx, Ny, kx, ky)[0][i][0, 0]
     # x-direction
     sliced_state = slice_state(state, Nx, Ny)
     nup_x, ndown_x, ups_x, downs_x = count_same_spins(Nx, sliced_state, l)
@@ -211,36 +222,89 @@ def H_z_elements(Nx, Ny, kx, ky, i, l):
     return 0.25 * (same_dir - diff_dir)
 
 
-def H_pm_elements(Nx, Ny, kx, ky, i, l):
-    # TODO: unfinished
-    states, dec_to_ind = generate_dec_to_ind_dictionary(Nx, Ny, kx, ky)
-    state = states[i][0]
-    print(state)
-    i_len = len(states[i])
+# def count_spin_flips(state, bit1, bit2):
+#     count = 0
+#     for b1, b2 in zip(bit1, bit2):
+#         # we don't really need to count up-downs since for every up-down there
+#         # must be a down-up and vice versa
+#         bool_arr1 = np.invert(np.array([state | b1 == state]).flatten())
+#         bool_arr2 = np.array([state | b2 == state]).flatten()
+#         for i, (bool1, bool2) in enumerate(zip(bool_arr1, bool_arr2)):
+#             if bool1 and bool2:
+#                 count += 2
+#                 pm = np.array([b1, b2])
+#                 pos = i
+#     return count, pm, pos
+
+
+def count_spin_flips(pdstate, bit1, bit2):
+    count = 0
+    downup_loc = []
+    updown_loc = []    # list of locations of spin-flips
+    for b1, b2 in zip(bit1, bit2):
+        if (pdstate | b1 == pdstate) and (not pdstate | b2 == pdstate):
+            count += 1
+            updown_loc.append(np.array([b1, b2]))
+        if (not pdstate | b1 == pdstate) and (pdstate | b2 == pdstate):
+            downup_loc.append(np.array([b1, b2]))
+    return count, updown_loc, downup_loc
+
+
+def H_pm_elements_x(Nx, Ny, kx, ky, i, l):
+    states, dec_to_ind = gen_dec_to_ind_dict(Nx, Ny, kx, ky)
+    full_state = states[i]
+    state = full_state[0, 0]  # only one product state is needed. See above.
+    i_shape = Shape(x=full_state.shape[1], y=full_state.shape[0])
+    bit1 = 2 ** (np.arange(l, Nx + 1) % Nx)
+    bit2 = 2 ** np.arange(Nx)
+    sliced_state = slice_state(state, Nx, Ny)
+    count = 0
+    updown_locs = []
+    downup_locs = []
+    for s, pdstate in enumerate(sliced_state):
+        cnt, udl, dul = count_spin_flips(pdstate, bit1, bit2)
+        count += cnt
+        if udl:
+            udl = np.array(udl)
+            updown_locs.append(udl * 2 ** (s * Nx))
+        if dul:
+            dul = np.array(dul)
+            downup_locs.append(dul * 2 ** (s * Nx))
+
+    # bit-flip the state once to see what it is coupled to. We don't need to do
+    # it to more than one product state since such flips will always get to
+    # some constituent product state of the same bloch state
+    # FIXME: connect to multiple states
+    connected_states = []
+    for updown_loc in updown_locs:
+        connected_states.append(state - updown_loc[0] + updown_loc[1])
+    for downup_loc in downup_locs:
+        connected_states.append(state + downup_loc[0] - downup_loc[1])
+    j, j_shape = dec_to_ind[connected_state]
+    val = i_shape.x * count / j_shape.x * np.sqrt(j_shape.x / i_shape.x)
+    return val, j
+
+
+# FIXME: algorithm needs to be completely reevaulated
+def H_pm_elements_y(Nx, Ny, kx, ky, i, l):
+    # pretty much identical to the x-direction version
+    states, dec_to_ind = gen_dec_to_ind_dict(Nx, Ny, kx, ky)
+    full_state = states[i]
+    state = full_state[0, 0]
+    i_shape = Shape(x=full_state.shape[1], y=full_state.shape[0])
     N = Nx * Ny
-    d = {'x': Nx, 'y': N}
-    for dn in ['x', 'y']:
-        N = d[dn]
-        bit1 = 2 ** np.arange(N)
-        bit2 = 2 ** (np.arange(l, N + 1) % N)
-        count = 0  # count of up-downs and down-ups separated by l
-        for b1, b2 in zip(bit1, bit2):
-            if (state | b1 == state) and (not state | b2 == state):
-                count += 1
-            if (not state | b1 == state) and (state | b2 == state):
-                count += 1
-                pm = (b1, b2)
-    # bit-flip the state once to see what it is coupled to. We don't need
-    #  to do it more than once since such flips will always get to
-    #  constituent states of the same bloch state
+    bit1 = 2 ** np.arange(N)
+    bit2 = 2 ** (np.arange(l * Nx, N + 1) % N)
+    count, pm, pos = count_spin_flips(state, bit1, bit2)
+
     connected_state = state + pm[0] - pm[1]
-    j, j_len = dec_to_ind[connected_state]
-    val = i_len * count / j_len * np.sqrt(j_len / i_len)
+    j, j_shape = dec_to_ind[connected_state]
+    val = i_shape.y * count / j_shape.y * np.sqrt(j_shape.y / i_shape.y)
     return val, j
 
 
 def H_ppmm_elements(N, k, i, l):
-    state = generate_dec_to_ind_dictionary(N, k)[0][i][0]
+    state = gen_dec_to_ind_dict(N, k)[0][i][0]
     nup, ndown, ups, downs = count_same_spins(N, state, l)
     if ups is not None:
         connected_state = state - ups
@@ -287,7 +351,7 @@ Ny = 4
 # kx = ky = 0
 # i = 6
 # l = 2
-# state = generate_dec_to_ind_dictionary(Nx, Ny, kx, ky)[0][i]
+# state = gen_dec_to_ind_dict(Nx, Ny, kx, ky)[0][i]
 # p = []
 # print('State:')
 # for row in state:
@@ -298,5 +362,12 @@ Ny = 4
 i = 2
 kx = ky = 0
 l = 1
-val, j = H_pm_elements(Nx, Ny, kx, ky, i, l)
+state = gen_dec_to_ind_dict(Nx, Ny, kx, ky)[0][i]
+p = []
+print('Nx = {}, Ny = {}'.format(Nx, Ny))
+print('State:')
+for row in state:
+    p.append(list(map(lambda x: format(x, '0{}b'.format(Nx * Ny)), row)))
+print(p)
+val, j = H_pm_elements_x(Nx, Ny, kx, ky, i, l)
 print(val, j)
