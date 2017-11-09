@@ -171,7 +171,7 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
         site = SemiPeriodicBCSiteVector.from_index(curr_site, self.Nx, self.Ny)
         neighbors = [i for i in site.neighboring_sites if i < curr_site]
 
-        H_pm_new = H_z_new = H_ppmm_new = H_pmz_new = sparse.csc_matrix(np.zeros((2, 2)))
+        H_pm_new = H_z_new = H_ppmm_new = H_pmz_new = 0
         for i in neighbors:
             key = (block_side, i + 1)
             block_ops = self.storage.get_item(key).ops
