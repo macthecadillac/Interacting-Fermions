@@ -5,7 +5,7 @@ from scipy.sparse.linalg import eigsh
 from collections import namedtuple
 
 Block = namedtuple('Block', 'side, length, basis_size, block, ops')
-Block.__new__.__defaults__ = (None,)
+key = namedtuple('key', 'side, length')
 
 
 class Storage():
@@ -53,38 +53,32 @@ class DMRG():
                      new_ops)
 
     def form_super_block(self, enl_sys_block, enl_env_block):
-        expanded_sys_block = kron(enl_sys_block.block,
-                                  eye(enl_env_block.basis_size))
-        expanded_env_block = kron(eye(enl_sys_block.basis_size),
-                                  enl_env_block.block)
-        site_site_interaction = sum(kron(enl_sys_block.ops[i],
-                                         enl_env_block.ops[i])
+        sys_basis_size = enl_sys_block.basis_size
+        env_basis_size = enl_env_block.basis_size
+        expanded_sys_block = kron(enl_sys_block.block, eye(env_basis_size))
+        expanded_env_block = kron(eye(sys_basis_size), enl_env_block.block)
+        site_site_interaction = sum(kron(enl_sys_block.ops[i], enl_env_block.ops[i])
                                     for i in enl_sys_block.ops.keys())
         return expanded_sys_block + expanded_env_block + site_site_interaction
 
-    def update_old_ops(self, curr_block, proj_op):
-        side, curr_size = curr_block.side, curr_block.length
-        for length in range(1, curr_size):
-            curr_key = (side, length)
+    def update_old_ops(self, currblock_key, proj_op):
+        for length in range(1, currblock_key.length):
+            curr_key = key(currblock_key.side, length)
             old_block = self.H.storage.get_item(curr_key)
             # pad the old operators if their dimensions are too small
             updated_block_ops = {}
-            if old_block.basis_size < curr_block.basis_size:
-                diff = curr_size // old_block.basis_size
-                for i in old_block.ops.keys():
-                    updated_block_ops[i] = kron(old_block.ops[i], eye(diff))
-                resized_block = kron(old_block.block, eye(diff))
-            else:
-                updated_block_ops = old_block.ops
-                resized_block = old_block.block
+            proj_op_nrow, proj_op_ncol = proj_op.shape
+            for i in old_block.ops.keys():
+                updated_block_ops[i] = kron(old_block.ops[i], eye(2))
+            resized_block = kron(old_block.block, eye(2))
             # project the old operators onto the new basis
             for i in updated_block_ops.keys():
                 updated_block_ops[i] = self.transform(proj_op, updated_block_ops[i])
             projected_block = self.transform(proj_op, resized_block)
             updated_block = Block(
-                side=side,
+                side=currblock_key.side,
                 length=length,
-                basis_size=curr_block.basis_size,
+                basis_size=proj_op_ncol,
                 block=projected_block,
                 ops=updated_block_ops
             )
@@ -113,9 +107,9 @@ class DMRG():
                 block=trunc_sys_block,
                 ops=trunc_newsite_ops
             )
-            newblock_key = (block.side, block.length)
+            newblock_key = key(block.side, block.length)
             self.H.storage.set_item(newblock_key, newblock)
-            self.update_old_ops(newblock, proj_op)
+            # self.update_old_ops(newblock_key, proj_op)
         return erg, trunc_err
 
 
@@ -197,8 +191,8 @@ def finite_system_dmrg(hamiltonian, target_m, L, sweeps=2, debug=False):
             sys_side, env_side = env_side, sys_side
             for sys_len in range(1, L - 2):
                 env_len = L - sys_len - 2
-                sys_block_key = (sys_side, sys_len)
-                env_block_key = (env_side, env_len)
+                sys_block_key = key(sys_side, sys_len)
+                env_block_key = key(env_side, env_len)
                 erg, trunc_err = dmrg.step(sys_block_key, env_block_key)
                 if debug:
                     print('sys', sys_len, 'env', env_len, erg[0], trunc_err)
