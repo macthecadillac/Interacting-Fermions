@@ -18,8 +18,12 @@ class Storage():
         rblock = Block('r', length=1, basis_size=2, block=init_rblock,
                        ops=init_ops)
 
-        self.blocks['l', 1] = lblock
-        self.blocks['r', 1] = rblock
+        self.blocks[key('l', 1)] = lblock
+        self.blocks[key('r', 1)] = rblock
+
+    @property
+    def keys(self):
+        return self.blocks.keys()
 
     def set_item(self, key, block):
         """key is a tuple"""
@@ -61,28 +65,26 @@ class DMRG():
                                     for i in enl_sys_block.ops.keys())
         return expanded_sys_block + expanded_env_block + site_site_interaction
 
-    def update_old_ops(self, currblock_key, proj_op):
-        for length in range(1, currblock_key.length):
-            curr_key = key(currblock_key.side, length)
-            old_block = self.H.storage.get_item(curr_key)
-            # pad the old operators if their dimensions are too small
-            updated_block_ops = {}
-            proj_op_nrow, proj_op_ncol = proj_op.shape
-            for i in old_block.ops.keys():
-                updated_block_ops[i] = kron(old_block.ops[i], eye(2))
-            resized_block = kron(old_block.block, eye(2))
-            # project the old operators onto the new basis
-            for i in updated_block_ops.keys():
-                updated_block_ops[i] = self.transform(proj_op, updated_block_ops[i])
-            projected_block = self.transform(proj_op, resized_block)
-            updated_block = Block(
-                side=currblock_key.side,
-                length=length,
-                basis_size=proj_op_ncol,
-                block=projected_block,
-                ops=updated_block_ops
-            )
-            self.H.storage.set_item(curr_key, updated_block)
+    def update_old_ops(self, block_key, proj_op):
+        old_block = self.H.storage.get_item(block_key)
+        # pad the old operators if their dimensions are too small
+        updated_block_ops = {}
+        proj_op_nrow, proj_op_ncol = proj_op.shape
+        for i in old_block.ops.keys():
+            updated_block_ops[i] = kron(old_block.ops[i], eye(2))
+        resized_block = kron(old_block.block, eye(2))
+        # project the old operators onto the new basis
+        for i in updated_block_ops.keys():
+            updated_block_ops[i] = self.transform(proj_op, updated_block_ops[i])
+        projected_block = self.transform(proj_op, resized_block)
+        updated_block = Block(
+            side=block_key.side,
+            length=block_key.length,
+            basis_size=proj_op_ncol,
+            block=projected_block,
+            ops=updated_block_ops
+        )
+        self.H.storage.set_item(block_key, updated_block)
 
     def step(self, sys_block_key, env_block_key, grow=False):
         enl_sys_block = self.enlarge(sys_block_key)
@@ -98,6 +100,8 @@ class DMRG():
         trunc_sys_block = self.transform(proj_op, enl_sys_block.block)
         trunc_newsite_ops = dict((i, self.transform(proj_op, enl_sys_block.ops[i]))
                                  for i in enl_sys_block.ops.keys())
+        # for k in self.H.storage.keys:
+        #     self.update_old_ops(k, proj_op)
         blocks = [enl_sys_block, enl_env_block] if grow else [enl_sys_block]
         for block in blocks:
             newblock = Block(
@@ -109,7 +113,6 @@ class DMRG():
             )
             newblock_key = key(block.side, block.length)
             self.H.storage.set_item(newblock_key, newblock)
-            # self.update_old_ops(newblock_key, proj_op)
         return erg, trunc_err
 
 
@@ -180,8 +183,8 @@ def finite_system_dmrg(hamiltonian, target_m, L, sweeps=2, debug=False):
     env_side = 'r'
     for sys_len in range(1, L - 2):
         env_len = sys_len if sys_len < L // 2 else L - sys_len - 2
-        sys_block_key = (sys_side, sys_len)
-        env_block_key = (env_side, env_len)
+        sys_block_key = key(sys_side, sys_len)
+        env_block_key = key(env_side, env_len)
         grow = True if sys_len < L // 2 else False
         erg, trunc_err = dmrg.step(sys_block_key, env_block_key, grow)
         if debug:
