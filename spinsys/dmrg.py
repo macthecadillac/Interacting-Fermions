@@ -62,6 +62,34 @@ class DMRG():
                                     for i in enl_sys_block.ops.keys())
         return expanded_sys_block + expanded_env_block + site_site_interaction
 
+    def update_old_ops(self, curr_block, proj_op):
+        side, curr_size = curr_block.side, curr_block.length
+        for length in range(1, curr_size):
+            curr_key = (side, length)
+            old_block = self.H.storage.get_item(curr_key)
+            # pad the old operators if their dimensions are too small
+            updated_block_ops = {}
+            if old_block.basis_size < curr_block.basis_size:
+                diff = curr_size // old_block.basis_size
+                for i in old_block.ops.keys():
+                    updated_block_ops[i] = kron(old_block.ops[i], eye(diff))
+                resized_block = kron(old_block.block, eye(diff))
+            else:
+                updated_block_ops = old_block.ops
+                resized_block = old_block.block
+            # project the old operators onto the new basis
+            for i in updated_block_ops.keys():
+                updated_block_ops[i] = self.transform(proj_op, updated_block_ops[i])
+            projected_block = self.transform(proj_op, resized_block)
+            updated_block = Block(
+                side=side,
+                length=length,
+                basis_size=curr_block.basis_size,
+                block=projected_block,
+                ops=updated_block_ops
+            )
+            self.H.storage.set_item(curr_key, updated_block)
+
     def step(self, sys_block_key, env_block_key, grow=False):
         enl_sys_block = self.enlarge(sys_block_key)
         enl_env_block = self.enlarge(env_block_key)
@@ -78,10 +106,16 @@ class DMRG():
                                  for i in enl_sys_block.ops.keys())
         blocks = [enl_sys_block, enl_env_block] if grow else [enl_sys_block]
         for block in blocks:
-            newblock = Block(block.side, block.length, curr_m, trunc_sys_block,
-                             trunc_newsite_ops)
-            self.H.storage.set_item((block.side, block.length),
-                                    newblock)
+            newblock = Block(
+                side=block.side,
+                length=block.length,
+                basis_size=curr_m,
+                block=trunc_sys_block,
+                ops=trunc_newsite_ops
+            )
+            newblock_key = (block.side, block.length)
+            self.H.storage.set_item(newblock_key, newblock)
+            self.update_old_ops(newblock, proj_op)
         return erg, trunc_err
 
 
