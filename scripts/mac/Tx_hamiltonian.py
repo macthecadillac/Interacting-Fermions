@@ -1,7 +1,7 @@
 from collections import namedtuple
 import fractions
 import functools
-from itertools import chain
+from itertools import chain, groupby
 import numpy as np
 from spinsys import exceptions, utils
 from hamiltonians.triangular_lattice_model import SiteVector
@@ -244,32 +244,41 @@ def count_spin_flips(pdstate, bit1, bit2):
     for b1, b2 in zip(bit1, bit2):
         if (pdstate | b1 == pdstate) and (not pdstate | b2 == pdstate):
             count += 1
-            updown_loc.append(np.array([b1, b2]))
+            updown_loc.append((b1, b2))
         if (not pdstate | b1 == pdstate) and (pdstate | b2 == pdstate):
-            downup_loc.append(np.array([b1, b2]))
+            downup_loc.append((b1, b2))
     return count, updown_loc, downup_loc
 
 
-def H_pm_elements_x(Nx, Ny, kx, ky, i, l):
+def H_pm_elements(Nx, Ny, kx, ky, i, l):
     states, dec_to_ind = gen_dec_to_ind_dict(Nx, Ny, kx, ky)
     full_state = states[i]
     state = full_state[0, 0]  # only one product state is needed. See above.
     i_shape = Shape(x=full_state.shape[1], y=full_state.shape[0])
+    # x-direction
     bit1 = 2 ** (np.arange(l, Nx + 1) % Nx)
     bit2 = 2 ** np.arange(Nx)
     sliced_state = slice_state(state, Nx, Ny)
-    count = 0
+    xcount = 0
     updown_locs = []
     downup_locs = []
     for s, pdstate in enumerate(sliced_state):
         cnt, udl, dul = count_spin_flips(pdstate, bit1, bit2)
-        count += cnt
+        xcount += cnt
         if udl:
             udl = np.array(udl)
-            updown_locs.append(udl * 2 ** (s * Nx))
+            updown_locs.extend(udl * 2 ** (s * Nx))
         if dul:
             dul = np.array(dul)
-            downup_locs.append(dul * 2 ** (s * Nx))
+            downup_locs.extend(dul * 2 ** (s * Nx))
+
+    # y-direction
+    N = Nx * Ny
+    bit1 = 2 ** np.arange(N)
+    bit2 = 2 ** (np.arange(l * Nx, N + 1) % N)
+    ycount, updown_loc, downup_loc = count_spin_flips(state, bit1, bit2)
+    updown_locs.extend(np.array(updown_loc))
+    downup_locs.extend(np.array(downup_loc))
 
     # bit-flip the state once to see what it is coupled to. We don't need to do
     # it to more than one product state since such flips will always get to
@@ -280,27 +289,36 @@ def H_pm_elements_x(Nx, Ny, kx, ky, i, l):
         connected_states.append(state - updown_loc[0] + updown_loc[1])
     for downup_loc in downup_locs:
         connected_states.append(state + downup_loc[0] - downup_loc[1])
-    j, j_shape = dec_to_ind[connected_state]
+
+    contd_states_cnt = []
+    for connected_state in connected_states:
+        j, j_shape = dec_to_ind[connected_state]
+        contd_states_cnt.append((j, j_shape))
+    contd_states_cnt.sort()
+    count_connect = groupby(contd_states_cnt)
+    for item, i in count_connect:
+        print(item, len(tuple(i)))
+    vals = []
     val = i_shape.x * count / j_shape.x * np.sqrt(j_shape.x / i_shape.x)
     return val, j
 
 
-# FIXME: algorithm needs to be completely reevaulated
-def H_pm_elements_y(Nx, Ny, kx, ky, i, l):
-    # pretty much identical to the x-direction version
-    states, dec_to_ind = gen_dec_to_ind_dict(Nx, Ny, kx, ky)
-    full_state = states[i]
-    state = full_state[0, 0]
-    i_shape = Shape(x=full_state.shape[1], y=full_state.shape[0])
-    N = Nx * Ny
-    bit1 = 2 ** np.arange(N)
-    bit2 = 2 ** (np.arange(l * Nx, N + 1) % N)
-    count, pm, pos = count_spin_flips(state, bit1, bit2)
+# # FIXME: algorithm needs to be completely reevaulated
+# def H_pm_elements_y(Nx, Ny, kx, ky, i, l):
+#     # pretty much identical to the x-direction version
+#     states, dec_to_ind = gen_dec_to_ind_dict(Nx, Ny, kx, ky)
+#     full_state = states[i]
+#     state = full_state[0, 0]
+#     i_shape = Shape(x=full_state.shape[1], y=full_state.shape[0])
+#     N = Nx * Ny
+#     bit1 = 2 ** np.arange(N)
+#     bit2 = 2 ** (np.arange(l * Nx, N + 1) % N)
+#     count, pm, pos = count_spin_flips(state, bit1, bit2)
 
-    connected_state = state + pm[0] - pm[1]
-    j, j_shape = dec_to_ind[connected_state]
-    val = i_shape.y * count / j_shape.y * np.sqrt(j_shape.y / i_shape.y)
-    return val, j
+#     connected_state = state + pm[0] - pm[1]
+#     j, j_shape = dec_to_ind[connected_state]
+#     val = i_shape.y * count / j_shape.y * np.sqrt(j_shape.y / i_shape.y)
+#     return val, j
 
 
 def H_ppmm_elements(N, k, i, l):
@@ -359,7 +377,7 @@ Ny = 4
 # print(p)
 # print('Element: {}, l: {}'.format(H_z_elements(Nx, Ny, kx, ky, i, l), l))
 
-i = 2
+i = 17
 kx = ky = 0
 l = 1
 state = gen_dec_to_ind_dict(Nx, Ny, kx, ky)[0][i]
@@ -369,5 +387,5 @@ print('State:')
 for row in state:
     p.append(list(map(lambda x: format(x, '0{}b'.format(Nx * Ny)), row)))
 print(p)
-val, j = H_pm_elements_x(Nx, Ny, kx, ky, i, l)
+val, j = H_pm_elements(Nx, Ny, kx, ky, i, l)
 print(val, j)
