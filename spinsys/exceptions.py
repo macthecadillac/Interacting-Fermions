@@ -29,3 +29,7 @@ class NotFoundError(Exception):
 
 class OutOfBoundsError(Exception):
     pass
+
+
+class SameSite(Exception):
+    pass
