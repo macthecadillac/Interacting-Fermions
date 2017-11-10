@@ -65,14 +65,20 @@ class DMRG():
                                     for i in enl_sys_block.ops.keys())
         return expanded_sys_block + expanded_env_block + site_site_interaction
 
-    def update_old_ops(self, block_key, proj_op):
+    def update_old_ops(self, sys_block_key, block_key, proj_op):
+        sys = True if sys_block_key.side == sys_block_key.side else False
         old_block = self.H.storage.get_item(block_key)
         # pad the old operators if their dimensions are too small
         updated_block_ops = {}
         proj_op_nrow, proj_op_ncol = proj_op.shape
-        for i in old_block.ops.keys():
-            updated_block_ops[i] = kron(old_block.ops[i], eye(2))
-        resized_block = kron(old_block.block, eye(2))
+        if sys:
+            for i in old_block.ops.keys():
+                updated_block_ops[i] = kron(old_block.ops[i], eye(2))
+            resized_block = kron(old_block.block, eye(2))
+        else:
+            for i in old_block.ops.keys():
+                updated_block_ops[i] = kron(eye(2), old_block.ops[i])
+            resized_block = kron(eye(2), old_block.block)
         # project the old operators onto the new basis
         for i in updated_block_ops.keys():
             updated_block_ops[i] = self.transform(proj_op, updated_block_ops[i])
@@ -100,8 +106,8 @@ class DMRG():
         trunc_sys_block = self.transform(proj_op, enl_sys_block.block)
         trunc_newsite_ops = dict((i, self.transform(proj_op, enl_sys_block.ops[i]))
                                  for i in enl_sys_block.ops.keys())
-        # for k in self.H.storage.keys:
-        #     self.update_old_ops(k, proj_op)
+        for k in self.H.storage.keys:
+            self.update_old_ops(sys_block_key, k, proj_op)
         blocks = [enl_sys_block, enl_env_block] if grow else [enl_sys_block]
         for block in blocks:
             newblock = Block(
