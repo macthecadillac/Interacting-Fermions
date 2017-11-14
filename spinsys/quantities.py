@@ -55,9 +55,9 @@ def _gen_all_dR(Nx, Ny):
     for i, j in pairs:
         site1 = constructors.PeriodicBCSiteVector.from_index(i, Nx, Ny)
         site2 = constructors.PeriodicBCSiteVector.from_index(j, Nx, Ny)
-        ΔR = np.array(site1.coord) - np.array(site2.coord)
+        ΔR = np.array(site2 - site1)
         sites.append(ΔR)
-    return sites
+    return np.array(sites)
 
 
 def adj_gap_ratio(sorted_eigvals):
@@ -134,7 +134,7 @@ def structural_factor(Nx, Ny, kx, ky, ψ):
     s: float
     """
     @utils.cache.cache_to_ram
-    def _spin_correlation_vals(N, ψ):
+    def _spin_correlation_vals(N):
         Sij = []
         z_mats = _create_z_mats(N)
         pairs = itertools.combinations_with_replacement(range(N), 2)
@@ -145,5 +145,6 @@ def structural_factor(Nx, Ny, kx, ky, ψ):
     N = Nx * Ny
     ΔRs = _gen_all_dR(Nx, Ny)
     k = np.array([kx, ky])
-    ftrans_factors = np.array([np.exp(-1j * k.dot(vec)) for vec in ΔRs])
-    return 1 / N * ftrans_factors.dot(_spin_correlation_vals(N, ψ))
+    ftrans_factors = np.exp(-1j * np.sum(k * ΔRs, axis=1))
+    spin_corr = _spin_correlation_vals(N)
+    return 1 / N * ftrans_factors.dot(spin_corr)
