@@ -1,11 +1,11 @@
 ## Dependencies
 
-This code depends on numpy and scipy.
+This code depends on numpy and scipy and works only with Python 3.
 
 ## Setting up
 
-Clone the repository into your favorite location. For development, run `python3
-setup.py develop --user`. For deployment, run `python3 setup.py install --user`.
+Clone the repository into your favorite location. To set up the development
+environment, run `python setup.py develop --user`.
 
 ## Usage
 
