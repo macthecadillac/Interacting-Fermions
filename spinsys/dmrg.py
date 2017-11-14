@@ -107,7 +107,8 @@ class DMRG():
         trunc_newsite_ops = dict((i, self.transform(proj_op, enl_sys_block.ops[i]))
                                  for i in enl_sys_block.ops.keys())
         for k in self.H.storage.keys:
-            self.update_old_ops(sys_block_key, k, proj_op)
+            if k.side == sys_block_key.side:
+                self.update_old_ops(sys_block_key, k, proj_op)
         blocks = [enl_sys_block, enl_env_block] if grow else [enl_sys_block]
         for block in blocks:
             newblock = Block(
