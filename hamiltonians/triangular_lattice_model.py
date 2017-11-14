@@ -138,22 +138,22 @@ class SemiPeriodicBCSiteVector(SiteVector):
         return neighbors
 
 
+@functools.lru_cache(maxsize=None)
 def _generate_bonds(Nx, Ny):
     N = Nx * Ny
     vec = SiteVector((0, 0), Nx, Ny)
-    bonds_by_order = [[], [], []]
+    bonds_by_dist = [[], [], []]
     for i in range(N):
-        # print(bonds_by_order, '\n\n')
         nearest_neighbor = vec.nearest_neighboring_sites
         second_neighbor = vec.second_neighboring_sites
         third_neighbor = vec.third_neighboring_sites
         neighbors = [nearest_neighbor, second_neighbor, third_neighbor]
-        for leap, bonds in enumerate(bonds_by_order):
+        for leap, bonds in enumerate(bonds_by_dist):
             for n in neighbors[leap]:
                 bond = (vec, n)
                 bonds.append(bond)
         vec = vec.next_site()
-    return bonds_by_order
+    return bonds_by_dist
 
 
 @functools.lru_cache(maxsize=None)
