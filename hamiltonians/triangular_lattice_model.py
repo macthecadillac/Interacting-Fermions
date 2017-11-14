@@ -1,8 +1,10 @@
+from collections import namedtuple
 import copy
+import fractions
 import functools
 import numpy as np
 from scipy import sparse
-from spinsys import constructors, half, dmrg, exceptions
+from spinsys import constructors, half, dmrg, exceptions, utils
 
 
 class SiteVector(constructors.PeriodicBCSiteVector):
@@ -235,15 +237,16 @@ def hamiltonian_dp(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
     H: scipy.sparse.csc_matrix
     """
     H_pm1, H_z1, H_ppmm, H_pmz, H_pm2, H_z2, H_pm3, H_z3 = _pieces(Nx, Ny)
-    nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + \
-        J_pmz * H_pmz
+    nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + J_pmz * H_pmz
     second_neighbor_terms = J2 * (H_pm2 + J_z / J_pm * H_z2)
     third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
     return nearest_neighbor_terms + second_neighbor_terms + third_neighbor_terms
 
 
-def hamiltonian_Tx():
-    pass
+Shape = namedtuple('Shape', 'x, y')
+Momentum = namedtuple('Momentum', 'kx, ky')
+# dec is the decimanl representation of one constituent product state of a Bloch function
+BlochFunc = namedtuple('BlochFunc', 'dec, shape')
 
 
 class DMRG_Hamiltonian(dmrg.Hamiltonian):
@@ -302,3 +305,441 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
 
         return self.J_pm * H_pm_new + self.J_z * H_z_new + \
             self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
+
+
+class BlochTable:
+
+    def __init__(self, states, shapes):
+        self.data = [states, shapes]
+        self.dataT = list(zip(*self.data))
+
+    def __getitem__(self, i):
+        return BlochFunc(*self.dataT[i])
+
+    def __len__(self):
+        return len(self.data[0])
+
+    def sort(self):
+        table = zip(*self.data)
+        table = sorted(table, key=lambda x: x[0])
+        self.data = list(zip(*table))
+        self.dataT = list(zip(*self.data))
+
+    @property
+    def dec(self):
+        return self.data[0]
+
+
+def slice_state(state, Nx, Ny):
+    # slice a given state into different "numbers" with each corresponding to
+    #  one leg in the x-direction.
+    n = np.arange(0, Nx * Ny, Nx)
+    return state % (2 ** (n + Nx)) // (2 ** n)
+
+
+def roll_x(state, Nx, Ny):
+    """roll to the right"""
+    @utils.cache.cache_to_ram
+    def xcache(Nx, Ny):
+        n = np.arange(0, Nx * Ny, Nx)
+        a = 2 ** (n + Nx)
+        b = 2 ** n
+        c = 2 ** Nx
+        d = 2 ** (Nx - 1)
+        e = 2 ** n
+        return a, b, c, d, e
+
+    # slice state into Ny equal slices
+    a, b, c, d, e = xcache(Nx, Ny)
+    s = state % a // b
+    s = (s * 2) % c + s // d
+    return (e).dot(s)
+
+
+def roll_y(state, Nx, Ny):
+    """roll up"""
+    @utils.cache.cache_to_ram
+    def ycache(Nx, Ny):
+        return 2 ** Nx, 2 ** (Nx * (Ny - 1))
+
+    xdim, pred_totdim = ycache(Nx, Ny)
+    tail = state % xdim
+    return state // xdim + tail * pred_totdim
+
+
+def _exchange_spin_flips(state, b1, b2):
+    updown = downup = False
+    if (state | b1 == state) and (not state | b2 == state):
+        updown = True
+    if (not state | b1 == state) and (state | b2 == state):
+        downup = True
+    return updown, downup
+
+
+def _repeated_spins(state, b1, b2):
+    upup = downdown = False
+    if (state | b1 == state) and (state | b2 == state):
+        upup = True
+    if (not state | b1 == state) and (not state | b2 == state):
+        downdown = True
+    return upup, downdown
+
+
+def _find_state(Nx, Ny, state, dec_to_ind):
+    def _rollx(j):
+        for _ in range(Nx):
+            j = roll_x(j, Nx, Ny)
+            if j in dec_to_ind.keys():
+                return j
+
+    jstate = state
+    for _ in range(Ny):
+        jstate = roll_y(jstate, Nx, Ny)
+        j = _rollx(jstate)
+        if j is not None:
+            return j
+
+
+@functools.lru_cache(maxsize=None)
+def _gamma_from_bits(Nx, Ny, b1, b2):
+    N = Nx * Ny
+    m = int(round(np.log2(b1)))
+    n = int(round(np.log2(b2)))
+    diff = abs(m - n)
+    det = min(N - diff, diff)
+    if det == Nx:
+        γ = np.exp(-1j * 2 * np.pi / 3)
+    elif det == 1:
+        γ = 1
+    else:
+        γ = np.exp(1j * 2 * np.pi / 3)
+    return γ
+
+
+@functools.lru_cache(maxsize=None)
+def _bits(Nx, Ny, l):
+    N = Nx * Ny
+    # interaction along x-direction
+    xbit1 = 2 ** (np.arange(l, N + l) % Nx + np.arange(Ny).repeat(Nx))
+    xbit2 = 2 ** (np.arange(N) % Nx + np.arange(Ny).repeat(Nx))
+    # interaction along y-direction
+    ybit1 = 2 ** np.arange(N)
+    ybit2 = 2 ** (np.arange(l * Nx, N + l * Nx) % N)
+    # FIXME: spin flips along the third direction
+    # INSERT CODE HERE
+    bit1 = np.concatenate((xbit1, ybit1))
+    bit2 = np.concatenate((xbit2, ybit2))
+    return bit1, bit2
+
+
+@functools.lru_cache(maxsize=None)
+def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
+    states = bloch_states(Nx, Ny, kx, ky)
+    dec = states.dec
+    nstates = len(dec)
+    inds = list(range(nstates))
+    dec_to_ind = dict(zip(dec, inds))
+    ind_to_dec = dict(zip(inds, states))
+    return ind_to_dec, dec_to_ind
+
+
+@functools.lru_cache(maxsize=None)
+def zero_momentum_states(Nx, Ny):
+    """only returns the representative configuration. All other constituent
+    product states within the same Bloch state could be found by repeatedly
+    applying the translation operator (the roll_something functions)
+    """
+    def find_T_invariant_set(i):
+        b = [i]
+        j = i
+        while True:
+            j = roll_x(j, Nx, Ny)
+            if not j == i:
+                b.append(j)
+                sieve[j] = 0
+            else:
+                break
+        b = np.array(b)
+        bloch_func = [b]
+        u = b.copy()
+        while True:
+            u = roll_y(u, Nx, Ny)
+            if not np.sort(u)[0] == np.sort(b)[0]:
+                bloch_func.append(u)
+                sieve[u] = 0
+            else:
+                break
+        bloch_func = np.array(bloch_func, dtype=np.int64)
+        try:
+            shape = bloch_func.shape
+            s = Shape(x=shape[1], y=shape[0])
+            states[s].append(i)
+        except KeyError:
+            states[s] = [i]
+
+    N = Nx * Ny
+    sieve = np.ones(2 ** N, dtype=np.int8)
+    sieve[0] = sieve[-1] = 0
+    maxdec = 2 ** N - 1
+    states = {Shape(1, 1): [0, maxdec]}
+    for i in range(maxdec + 1):
+        if sieve[i]:
+            find_T_invariant_set(i)
+    return states
+
+
+@functools.lru_cache(maxsize=None)
+def bloch_states(Nx, Ny, kx, ky):
+    def check_bounds(N, k):
+        return k > 0 or (k < 0 and ((not -k == N // 2) or (not N % 2 == 0)))
+
+    zero_k_states = zero_momentum_states(Nx, Ny)
+    if kx > Nx // 2 or ky > Ny // 2:
+        raise exceptions.NotFoundError
+
+    states, shapes = [], []
+    if kx == 0 and ky == 0:
+        for s in zero_k_states.keys():
+            for state in zero_k_states[s]:
+                states.append(state)
+                shapes.append(s)
+    elif kx == 0:
+        if check_bounds(Ny, ky):
+            for s in zero_k_states.keys():
+                period = Ny // fractions.gcd(Ny, ky)
+                if s.y % period == 0:
+                    for state in zero_k_states[s]:
+                        states.append(state)
+                        shapes.append(s)
+        else:
+            raise exceptions.NotFoundError
+    elif ky == 0:
+        if check_bounds(Nx, kx):
+            for s in zero_k_states.keys():
+                period = Nx // fractions.gcd(Nx, kx)
+                if s.x % period == 0:
+                    for state in zero_k_states[s]:
+                        states.append(state)
+                        shapes.append(s)
+        else:
+            raise exceptions.NotFoundError
+    elif check_bounds(Nx, kx) and check_bounds(Ny, ky):
+        for s in zero_k_states.keys():
+            periodx = Nx // fractions.gcd(Nx, kx)
+            periody = Ny // fractions.gcd(Ny, ky)
+            if s.x % periodx == 0 and s.y % periody == 0:
+                for state in zero_k_states[s]:
+                    states.append(state)
+                    shapes.append(s)
+    else:
+        raise exceptions.NotFoundError
+    table = BlochTable(states, shapes)
+    table.sort()
+    return table
+
+
+def all_bloch_states(Nx, Ny):
+    states = {}
+    max_kx = Nx // 2
+    max_ky = Ny // 2
+    for kx in range(-max_kx, max_kx + 1):
+        for ky in range(-max_ky, max_ky + 1):
+            try:
+                states[Momentum(kx, ky)] = bloch_states(Nx, Ny, kx, ky)
+            except exceptions.NotFoundError:
+                continue
+    return states
+
+
+def count_same_spins(N, state, l):
+    # subtraction does a bitwise flip of 1's and 0's. We need this
+    #  because subsequent operations are insensitive to patterns of 0's
+    inverted_state = 2 ** N - 1 - state
+    # the mod operator accounts for periodic boundary conditions
+    couplings = 2 ** np.arange(N) + 2 ** (np.arange(l, N + l) % N)
+    nup = ndown = 0
+    for i in couplings:
+        # if a state is unchanged under bitwise OR with the given number,
+        #  it has two 1's at those two sites
+        if (state | i == state):
+            nup += 1
+        # cannot be merged with the previous statement because bit-flipped
+        #  numbers using subtraction are possibly also bit-shifted
+        if (inverted_state | i == inverted_state):
+            ndown += 1
+        # TODO: fix the over-counting checking for arbitrary l
+        # don't over-count interactions for chain with len=2
+        if len(couplings) == 2:
+            break
+    return nup, ndown
+
+
+def H_z_elements(Nx, Ny, kx, ky, i, l):
+    # "l" is the leap. l = 1 for nearest neighbor coupling and so on.
+    N = Nx * Ny
+    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+    state = ind_to_dec[i].dec
+    # x-direction
+    sliced_state = slice_state(state, Nx, Ny)
+    nup_x = ndown_x = 0
+    for leg in sliced_state:
+        u, d = count_same_spins(Nx, leg, l)
+        nup_x += u
+        ndown_x += d
+    # y-direction
+    nup_y, ndown_y = count_same_spins(N, state, l * Nx)
+    same_dir = nup_x + nup_y + ndown_x + ndown_y
+    # TODO: fix the over-counting checking for arbitrary l
+    nx = Nx if not Nx == 2 else 1  # prevent over-counting interactions
+    ny = Ny if not Ny == 2 else 1
+    diff_dir_x = nx * Ny - nup_x - ndown_x
+    diff_dir_y = Nx * ny - nup_y - ndown_y
+    diff_dir = diff_dir_x + diff_dir_y
+    return 0.25 * (same_dir - diff_dir)
+
+
+def H_pm_elements(Nx, Ny, kx, ky, i, l):
+    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+    state = ind_to_dec[i].dec
+    j_element = {}
+    bits = _bits(Nx, Ny, l)
+    for b1, b2 in zip(*bits):
+        updown, downup = _exchange_spin_flips(state, b1, b2)
+        if updown or downup:
+            if updown:
+                new_state = state - b1 + b2
+            elif downup:
+                new_state = state + b1 - b2
+
+            if new_state not in dec_to_ind.keys():
+                connected_state = _find_state(Nx, Ny, new_state, dec_to_ind)
+            else:
+                connected_state = new_state
+
+            j = dec_to_ind[connected_state]
+            try:
+                j_element[j] += 1
+            except KeyError:
+                j_element[j] = 1
+    return j_element
+
+
+def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
+    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+    state = ind_to_dec[i].dec
+    j_element = {}
+    bits = _bits(Nx, Ny, l)
+    for b1, b2 in zip(*bits):
+        upup, downdown = _repeated_spins(state, b1, b2)
+        if upup or downdown:
+            if upup:
+                new_state = state - b1 - b2
+                γ = _gamma_from_bits(Nx, Ny, b1, b2).conjugate()
+            elif downdown:
+                new_state = state + b1 + b2
+                γ = _gamma_from_bits(Nx, Ny, b1, b2)
+
+            # find what connected state it is if the state we got from bit-
+            #  flipping is not in our records
+            if new_state not in dec_to_ind.keys():
+                connected_state = _find_state(Nx, Ny, new_state, dec_to_ind)
+            else:
+                connected_state = new_state
+
+            j = dec_to_ind[connected_state]
+            try:
+                j_element[j] += γ
+            except KeyError:
+                j_element[j] = γ
+    return j_element
+
+
+def H_pmz_elements(Nx, Ny, kx, ky, i, l):
+    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+    state = ind_to_dec[i].dec
+    j_element = {}
+    bits = _bits(Nx, Ny, l)
+    for b1, b2 in zip(*bits):
+        for _ in range(2):
+            if state | b1 == state:
+                sgn = 1
+            else:
+                sgn = -1
+
+            if state | b2 == state:
+                new_state = state - b2
+                γ = _gamma_from_bits(Nx, Ny, b1, b2).conjugate()
+            else:
+                new_state = state + b2
+                γ = -_gamma_from_bits(Nx, Ny, b1, b2)
+
+            if new_state not in dec_to_ind.keys():
+                connected_state = _find_state(Nx, Ny, new_state, dec_to_ind)
+            else:
+                connected_state = new_state
+
+            j = dec_to_ind[connected_state]
+            try:
+                j_element[j] += sgn * γ
+            except KeyError:
+                j_element[j] = sgn * γ
+
+            b1, b2 = b2, b1
+    return j_element
+
+
+def H_z_matrix(Nx, Ny, kx, ky, l):
+    n = len(bloch_states(Nx, Ny, kx, ky))
+    data = np.empty(n)
+    for i in range(n):
+        data[i] = H_z_elements(Nx, Ny, kx, ky, i, l)
+    inds = np.arange(n)
+    return sparse.csc_matrix((data, (inds, inds)), shape=(n, n))
+
+
+def _offdiag_components(Nx, Ny, kx, ky, l, func):
+    n = len(bloch_states(Nx, Ny, kx, ky))
+    row, col, data = [], [], []
+    for i in range(n):
+        j_elements = func(Nx, Ny, kx, ky, i, l)
+        for j, count in j_elements.items():
+            row.append(i)
+            col.append(j)
+            data.append(count)
+    return sparse.csc_matrix((data, (row, col)), shape=(n, n))
+
+
+def H_pm_matrix(Nx, Ny, kx, ky, l):
+    return _offdiag_components(Nx, Ny, kx, ky, l, H_pm_elements)
+
+
+def H_ppmm_matrix(Nx, Ny, kx, ky):
+    l = 1
+    return _offdiag_components(Nx, Ny, kx, ky, l, H_ppmm_elements)
+
+
+def H_pmz_matrix(Nx, Ny, kx, ky):
+    l = 1
+    return 1j * _offdiag_components(Nx, Ny, kx, ky, l, H_pmz_elements)
+
+
+@functools.lru_cache(maxsize=None)
+def hamiltonian_consv_k_components(Nx, Ny, kx, ky):
+    H_z1 = H_z_matrix(Nx, Ny, kx, ky, 1)
+    H_z2 = H_z_matrix(Nx, Ny, kx, ky, 2)
+    H_z3 = H_z_matrix(Nx, Ny, kx, ky, 3)
+    H_pm1 = H_pm_matrix(Nx, Ny, kx, ky, 1)
+    H_pm2 = H_pm_matrix(Nx, Ny, kx, ky, 2)
+    H_pm3 = H_pm_matrix(Nx, Ny, kx, ky, 3)
+    H_ppmm = H_ppmm_matrix(Nx, Ny, kx, ky)
+    H_pmz = H_pmz_matrix(Nx, Ny, kx, ky)
+    return H_z1, H_z2, H_z3, H_pm1, H_pm2, H_pm3, H_ppmm, H_pmz
+
+
+def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
+    H_components = hamiltonian_consv_k_components(Nx, Ny, kx, ky)
+    H_z1, H_z2, H_z3, H_pm1, H_pm2, H_pm3, H_ppmm, H_pmz = H_components
+    nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + J_pmz * H_pmz
+    second_neighbor_terms = J2 * (H_pm2 + J_z / J_pm * H_z2)
+    third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
+    return nearest_neighbor_terms + second_neighbor_terms + third_neighbor_terms
