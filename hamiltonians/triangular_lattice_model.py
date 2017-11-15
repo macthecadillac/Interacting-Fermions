@@ -420,15 +420,17 @@ def _gamma_from_bits(Nx, Ny, b1, b2):
 def _bits(Nx, Ny, l):
     N = Nx * Ny
     # interaction along x-direction
-    xbit1 = 2 ** (np.arange(l, N + l) % Nx + np.arange(Ny).repeat(Nx))
-    xbit2 = 2 ** (np.arange(N) % Nx + np.arange(Ny).repeat(Nx))
+    xbit1 = 2 ** (np.arange(l, N + l) % Nx + np.arange(0, N, Nx).repeat(Nx))
+    xbit2 = 2 ** (np.arange(N) % Nx + np.arange(0, N, Nx).repeat(Nx))
     # interaction along y-direction
     ybit1 = 2 ** np.arange(N)
     ybit2 = 2 ** (np.arange(l * Nx, N + l * Nx) % N)
-    # FIXME: spin flips along the third direction
-    # INSERT CODE HERE
-    bit1 = np.concatenate((xbit1, ybit1))
-    bit2 = np.concatenate((xbit2, ybit2))
+    # interaction along the diagonal direction
+    dbit1 = np.roll(np.arange(N) % Nx, -1) + np.arange(0, N, Nx).repeat(Nx)
+    dbit1 = np.array([roll_y(b, Nx, Ny) for b in 2 ** dbit1])
+    dbit2 = np.arange(N) % Nx + np.arange(0, N, Nx).repeat(Nx)
+    bit1 = np.concatenate((xbit1, ybit1, dbit1))
+    bit2 = np.concatenate((xbit2, ybit2, dbit2))
     return bit1, bit2
 
 
@@ -709,6 +711,8 @@ def _offdiag_components(Nx, Ny, kx, ky, l, func):
     return sparse.csc_matrix((data, (row, col)), shape=(n, n))
 
 
+# I'm partially applying the functions manually because the syntax of
+#  python does not lend itself well to the use of closures
 def H_pm_matrix(Nx, Ny, kx, ky, l):
     return _offdiag_components(Nx, Ny, kx, ky, l, H_pm_elements)
 
