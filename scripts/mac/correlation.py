@@ -1,3 +1,4 @@
+import numpy as np
 from spinsys import constructors, half
 from scipy import sparse
 import hamiltonians.triangular_lattice_model as t
@@ -13,23 +14,31 @@ def _gen_full_ops(N):
     return x_mats, y_mats, z_mats
 
 
-def _gen_ops(N, bonds):
-    """generate the H_z and H_pm components of the Hamiltonian"""
-    ops = []
-    x_mats, y_mats, z_mats = _gen_full_ops(N)
-    for bond in bonds:
-        site1, site2 = bond
-        i, j = site1.lattice_index, site2.lattice_index
-        ops.append(x_mats[i].dot(x_mats[j]) + y_mats[i].dot(y_mats[j]))
-    return ops
+def gen_plot_xy(Nx, Ny, i, ψ):
+    plot = np.empty(N)
+    for j in range(N):
+        op = x_mats[i].dot(x_mats[j]) + y_mats[i].dot(y_mats[j])
+        plot[j] = ψ.T.conjugate().dot(op).dot(ψ)[0, 0].real
+    return np.flip(plot.reshape(Ny, -1), axis=0)
+
+
+def gen_plot_z(Nx, Ny, i, ψ):
+    plot = np.empty(N)
+    for j in range(N):
+        op = z_mats[i].dot(z_mats[j])
+        plot[j] = ψ.T.conjugate().dot(op).dot(ψ)[0, 0].real
+    return np.flip(plot.reshape(Ny, -1), axis=0)
 
 
 Nx = 3
 Ny = 6
+N = Nx * Ny
 J_z = 1
 J_pm = 0.5
 H = t.hamiltonian_dp(Nx, Ny, J_z=J_z, J_pm=J_pm)
 E, V = sparse.linalg.eigsh(H, which='SA', k=1)
 ψ = sparse.csc_matrix(V)
-nearest, second, third = t._generate_bonds(Nx, Ny)
-xxyy = _gen_ops(N, nearest) + _gen_ops(N, second) + _gen_ops(N, third)
+x_mats, y_mats, z_mats = _gen_full_ops(N)
+for i in range(N):
+    plot = gen_plot_z(Nx, Ny, i, ψ)
+    np.savetxt('/home/mac/plot_z_i={}.txt'.format(i), plot, fmt='%7.4f')
