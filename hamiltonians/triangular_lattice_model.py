@@ -150,18 +150,18 @@ class SemiPeriodicBCSiteVector(SiteVector):
 def _generate_bonds(Nx, Ny):
     N = Nx * Ny
     vec = SiteVector((0, 0), Nx, Ny)
-    bonds_by_dist = [[], [], []]
+    range_orders = [[], [], []]
     for i in range(N):
         nearest_neighbor = vec.nearest_neighboring_sites
         second_neighbor = vec.second_neighboring_sites
         third_neighbor = vec.third_neighboring_sites
         neighbors = [nearest_neighbor, second_neighbor, third_neighbor]
-        for leap, bonds in enumerate(bonds_by_dist):
+        for leap, bonds in enumerate(range_orders):
             for n in neighbors[leap]:
                 bond = (vec, n)
                 bonds.append(bond)
         vec = vec.next_site()
-    return bonds_by_dist
+    return range_orders
 
 
 @functools.lru_cache(maxsize=None)
@@ -421,20 +421,15 @@ def _gamma_from_bits(Nx, Ny, b1, b2):
 
 @functools.lru_cache(maxsize=None)
 def _bits(Nx, Ny, l):
-    N = Nx * Ny
-    # interaction along x-direction
-    xbit1 = 2 ** (np.arange(l, N + l) % Nx + np.arange(0, N, Nx).repeat(Nx))
-    xbit2 = 2 ** (np.arange(N) % Nx + np.arange(0, N, Nx).repeat(Nx))
-    # interaction along y-direction
-    ybit1 = 2 ** np.arange(N)
-    ybit2 = 2 ** (np.arange(l * Nx, N + l * Nx) % N)
-    # interaction along the diagonal direction
-    dbit1 = np.roll(np.arange(N) % Nx, -1) + np.arange(0, N, Nx).repeat(Nx)
-    dbit1 = np.array([roll_y(b, Nx, Ny) for b in 2 ** dbit1])
-    dbit2 = 2 ** (np.arange(N) % Nx + np.arange(0, N, Nx).repeat(Nx))
-    bit1 = np.concatenate((xbit1, ybit1, dbit1))
-    bit2 = np.concatenate((xbit2, ybit2, dbit2))
-    return bit1, bit2
+    bit1, bit2 = [], []
+    range_orders = _generate_bonds(Nx, Ny)
+    bonds = range_orders[l - 1]
+    for bond in bonds:
+        bit1.append(bond[0].lattice_index)
+        bit2.append(bond[1].lattice_index)
+    bit1 = np.array(bit1)
+    bit2 = np.array(bit2)
+    return 2 ** bit1, 2 ** bit2
 
 
 @functools.lru_cache(maxsize=None)
@@ -536,7 +531,6 @@ def bloch_states(Nx, Ny, kx, ky):
 def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
     states = bloch_states(Nx, Ny, kx, ky)
     dec = states.dec
-    print(states.dec)
     nstates = len(dec)
     inds = list(range(nstates))
     dec_to_ind = dict(zip(dec, inds))
@@ -557,51 +551,27 @@ def all_bloch_states(Nx, Ny):
     return states
 
 
-def count_same_spins(N, state, l):
-    # subtraction does a bitwise flip of 1's and 0's. We need this
-    #  because subsequent operations are insensitive to patterns of 0's
-    inverted_state = 2 ** N - 1 - state
-    # the mod operator accounts for periodic boundary conditions
-    couplings = 2 ** np.arange(N) + 2 ** (np.arange(l, N + l) % N)
-    nup = ndown = 0
-    for i in couplings:
-        # if a state is unchanged under bitwise OR with the given number,
-        #  it has two 1's at those two sites
-        if (state | i == state):
-            nup += 1
-        # cannot be merged with the previous statement because bit-flipped
-        #  numbers using subtraction are possibly also bit-shifted
-        if (inverted_state | i == inverted_state):
-            ndown += 1
-        # TODO: fix the over-counting checking for arbitrary l
-        # don't over-count interactions for chain with len=2
-        if len(couplings) == 2:
-            break
-    return nup, ndown
-
-
 def H_z_elements(Nx, Ny, kx, ky, i, l):
-    # "l" is the leap. l = 1 for nearest neighbor coupling and so on.
     N = Nx * Ny
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     state = ind_to_dec[i].dec
-    # x-direction
-    sliced_state = slice_state(state, Nx, Ny)
-    nup_x = ndown_x = 0
-    for leg in sliced_state:
-        u, d = count_same_spins(Nx, leg, l)
-        nup_x += u
-        ndown_x += d
-    # y-direction
-    nup_y, ndown_y = count_same_spins(N, state, l * Nx)
-    same_dir = nup_x + nup_y + ndown_x + ndown_y
-    # TODO: fix the over-counting checking for arbitrary l
-    nx = Nx if not Nx == 2 else 1  # prevent over-counting interactions
-    ny = Ny if not Ny == 2 else 1
-    diff_dir_x = nx * Ny - nup_x - ndown_x
-    diff_dir_y = Nx * ny - nup_y - ndown_y
-    diff_dir = diff_dir_x + diff_dir_y
+    bits = _bits(Nx, Ny, l)
+    same_dir = 0
+    for b1, b2 in zip(*bits):
+        upup, downdown = _repeated_spins(state, b1, b2)
+        same_dir += upup + downdown
+    diff_dir = N - same_dir
     return 0.25 * (same_dir - diff_dir)
+
+
+@functools.lru_cache(maxsize=None)
+def _coeff(Nx, Ny, kx, ky, i, j):
+    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+    orig_state = ind_to_dec[i]
+    cntd_state = ind_to_dec[j]
+    old_state_len = orig_state.shape.x * orig_state.shape.y
+    new_state_len = cntd_state.shape.x * cntd_state.shape.y
+    return np.sqrt(old_state_len / new_state_len)
 
 
 def H_pm_elements(Nx, Ny, kx, ky, i, l):
@@ -631,10 +601,11 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
                   connected_state)
             print(format(connected_state, '0{}b'.format(N)))
             j = dec_to_ind[connected_state]
+            coeff = _coeff(Nx, Ny, kx, ky, i, j)
             try:
-                j_element[j] += 1
+                j_element[j] += coeff
             except KeyError:
-                j_element[j] = 1
+                j_element[j] = coeff
     return j_element
 
 
@@ -661,10 +632,11 @@ def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
                 connected_state = new_state
 
             j = dec_to_ind[connected_state]
+            coeff = _coeff(Nx, Ny, kx, ky, i, j)
             try:
-                j_element[j] += γ
+                j_element[j] += coeff * γ
             except KeyError:
-                j_element[j] = γ
+                j_element[j] = coeff * γ
     return j_element
 
 
@@ -693,10 +665,11 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
                 connected_state = new_state
 
             j = dec_to_ind[connected_state]
+            coeff = _coeff(Nx, Ny, kx, ky, i, j)
             try:
-                j_element[j] += sgn * γ
+                j_element[j] += sgn * γ * coeff
             except KeyError:
-                j_element[j] = sgn * γ
+                j_element[j] = sgn * γ * coeff
 
             b1, b2 = b2, b1
     return j_element
