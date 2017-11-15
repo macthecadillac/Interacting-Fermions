@@ -102,6 +102,20 @@ class SiteVector:
         typecomp = self.__class__ == other.__class__
         return dictcomp and typecomp
 
+    def __lt__(self, other):
+        """needed for the class to be sortable"""
+        N = self.Nx * self.Ny
+        otherN = other.Nx * other.Ny
+        if not N == otherN:
+            return N < otherN
+        elif not self.y == other.y:
+            return self.y < other.y
+        else:
+            return self.x < other.x
+
+    def __hash__(self):
+        return hash((self.__class__, self.x, self.y, self.Nx, self.Ny))
+
     def diff(self):
         raise NotImplementedError
 
