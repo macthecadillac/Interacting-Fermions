@@ -4,7 +4,7 @@ import fractions
 import functools
 import numpy as np
 from scipy import sparse
-from spinsys import constructors, half, dmrg, exceptions, utils
+from spinsys import constructors, half, dmrg, exceptions
 
 
 class SiteVector(constructors.PeriodicBCSiteVector):
@@ -337,32 +337,34 @@ def slice_state(state, Nx, Ny):
     return state % (2 ** (n + Nx)) // (2 ** n)
 
 
+@functools.lru_cache(maxsize=None)
+def _roll_x_aux(Nx, Ny):
+    n = np.arange(0, Nx * Ny, Nx)
+    a = 2 ** (n + Nx)
+    b = 2 ** n
+    c = 2 ** Nx
+    d = 2 ** (Nx - 1)
+    e = 2 ** n
+    return a, b, c, d, e
+
+
 def roll_x(state, Nx, Ny):
     """roll to the right"""
-    @utils.cache.cache_to_ram
-    def xcache(Nx, Ny):
-        n = np.arange(0, Nx * Ny, Nx)
-        a = 2 ** (n + Nx)
-        b = 2 ** n
-        c = 2 ** Nx
-        d = 2 ** (Nx - 1)
-        e = 2 ** n
-        return a, b, c, d, e
-
     # slice state into Ny equal slices
-    a, b, c, d, e = xcache(Nx, Ny)
+    a, b, c, d, e = _roll_x_aux(Nx, Ny)
     s = state % a // b
     s = (s * 2) % c + s // d
     return (e).dot(s)
 
 
+@functools.lru_cache(maxsize=None)
+def _roll_y_aux(Nx, Ny):
+    return 2 ** Nx, 2 ** (Nx * (Ny - 1))
+
+
 def roll_y(state, Nx, Ny):
     """roll up"""
-    @utils.cache.cache_to_ram
-    def ycache(Nx, Ny):
-        return 2 ** Nx, 2 ** (Nx * (Ny - 1))
-
-    xdim, pred_totdim = ycache(Nx, Ny)
+    xdim, pred_totdim = _roll_y_aux(Nx, Ny)
     tail = state % xdim
     return state // xdim + tail * pred_totdim
 
