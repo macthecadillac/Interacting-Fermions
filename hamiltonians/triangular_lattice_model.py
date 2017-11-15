@@ -7,6 +7,12 @@ from scipy import sparse
 from spinsys import constructors, half, dmrg, exceptions
 
 
+Shape = namedtuple('Shape', 'x, y')
+Momentum = namedtuple('Momentum', 'kx, ky')
+# dec is the decimanl representation of one constituent product state of a Bloch function
+BlochFunc = namedtuple('BlochFunc', 'dec, shape')
+
+
 class SiteVector(constructors.PeriodicBCSiteVector):
 
     def __init__(self, ordered_pair, Nx, Ny):
@@ -182,7 +188,7 @@ def _gen_z_pm_ops(N, bonds):
 
 
 @functools.lru_cache(maxsize=None)
-def _pieces(Nx, Ny):
+def hamiltonian_dp_components(Nx, Ny):
     """Generate the reusable pieces of the hamiltonian"""
     N = Nx * Ny
     nearest, second, third = _generate_bonds(Nx, Ny)
@@ -236,17 +242,12 @@ def hamiltonian_dp(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
     --------------------
     H: scipy.sparse.csc_matrix
     """
-    H_pm1, H_z1, H_ppmm, H_pmz, H_pm2, H_z2, H_pm3, H_z3 = _pieces(Nx, Ny)
+    components = hamiltonian_dp_components(Nx, Ny)
+    H_pm1, H_z1, H_ppmm, H_pmz, H_pm2, H_z2, H_pm3, H_z3 = components
     nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + J_pmz * H_pmz
     second_neighbor_terms = J2 * (H_pm2 + J_z / J_pm * H_z2)
     third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
     return nearest_neighbor_terms + second_neighbor_terms + third_neighbor_terms
-
-
-Shape = namedtuple('Shape', 'x, y')
-Momentum = namedtuple('Momentum', 'kx, ky')
-# dec is the decimanl representation of one constituent product state of a Bloch function
-BlochFunc = namedtuple('BlochFunc', 'dec, shape')
 
 
 class DMRG_Hamiltonian(dmrg.Hamiltonian):
@@ -430,7 +431,7 @@ def _bits(Nx, Ny, l):
     # interaction along the diagonal direction
     dbit1 = np.roll(np.arange(N) % Nx, -1) + np.arange(0, N, Nx).repeat(Nx)
     dbit1 = np.array([roll_y(b, Nx, Ny) for b in 2 ** dbit1])
-    dbit2 = np.arange(N) % Nx + np.arange(0, N, Nx).repeat(Nx)
+    dbit2 = 2 ** (np.arange(N) % Nx + np.arange(0, N, Nx).repeat(Nx))
     bit1 = np.concatenate((xbit1, ybit1, dbit1))
     bit2 = np.concatenate((xbit2, ybit2, dbit2))
     return bit1, bit2
@@ -615,11 +616,19 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
             elif downup:
                 new_state = state + b1 - b2
 
+            N = Nx * Ny
+            print(updown, downup)
             if new_state not in dec_to_ind.keys():
                 connected_state = _find_state(Nx, Ny, new_state, dec_to_ind)
             else:
                 connected_state = new_state
 
+            print('\nbits:', format(b1, '0{}b'.format(N)),
+                  format(b2, '0{}b'.format(N)))
+            print(format(state, '0{}b'.format(N)),
+                  format(new_state, '0{}b'.format(N)),
+                  connected_state)
+            print(format(connected_state, '0{}b'.format(N)))
             j = dec_to_ind[connected_state]
             try:
                 j_element[j] += 1
@@ -734,8 +743,11 @@ def hamiltonian_consv_k_components(Nx, Ny, kx, ky):
     H_z1 = H_z_matrix(Nx, Ny, kx, ky, 1)
     H_z2 = H_z_matrix(Nx, Ny, kx, ky, 2)
     H_z3 = H_z_matrix(Nx, Ny, kx, ky, 3)
+    print('####################      l = 1      ####################')
     H_pm1 = H_pm_matrix(Nx, Ny, kx, ky, 1)
+    print('####################      l = 2      ####################')
     H_pm2 = H_pm_matrix(Nx, Ny, kx, ky, 2)
+    print('####################      l = 3      ####################')
     H_pm3 = H_pm_matrix(Nx, Ny, kx, ky, 3)
     H_ppmm = H_ppmm_matrix(Nx, Ny, kx, ky)
     H_pmz = H_pmz_matrix(Nx, Ny, kx, ky)
