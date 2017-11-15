@@ -438,17 +438,6 @@ def _bits(Nx, Ny, l):
 
 
 @functools.lru_cache(maxsize=None)
-def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
-    states = bloch_states(Nx, Ny, kx, ky)
-    dec = states.dec
-    nstates = len(dec)
-    inds = list(range(nstates))
-    dec_to_ind = dict(zip(dec, inds))
-    ind_to_dec = dict(zip(inds, states))
-    return ind_to_dec, dec_to_ind
-
-
-@functools.lru_cache(maxsize=None)
 def zero_momentum_states(Nx, Ny):
     """only returns the representative configuration. All other constituent
     product states within the same Bloch state could be found by repeatedly
@@ -499,7 +488,7 @@ def bloch_states(Nx, Ny, kx, ky):
         return k > 0 or (k < 0 and ((not -k == N // 2) or (not N % 2 == 0)))
 
     zero_k_states = zero_momentum_states(Nx, Ny)
-    if kx > Nx // 2 or ky > Ny // 2:
+    if abs(kx) > Nx // 2 or abs(ky) > Ny // 2:
         raise exceptions.NotFoundError
 
     states, shapes = [], []
@@ -541,6 +530,18 @@ def bloch_states(Nx, Ny, kx, ky):
     table = BlochTable(states, shapes)
     table.sort()
     return table
+
+
+@functools.lru_cache(maxsize=None)
+def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
+    states = bloch_states(Nx, Ny, kx, ky)
+    dec = states.dec
+    print(states.dec)
+    nstates = len(dec)
+    inds = list(range(nstates))
+    dec_to_ind = dict(zip(dec, inds))
+    ind_to_dec = dict(zip(inds, states))
+    return ind_to_dec, dec_to_ind
 
 
 def all_bloch_states(Nx, Ny):
