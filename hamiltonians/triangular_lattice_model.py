@@ -1,4 +1,5 @@
 from collections import namedtuple
+from itertools import chain
 import copy
 import functools
 import numpy as np
@@ -551,15 +552,14 @@ def all_bloch_states(Nx, Ny):
 
 
 def H_z_elements(Nx, Ny, kx, ky, i, l):
-    N = Nx * Ny
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     state = ind_to_dec[i].dec
-    bits = _bits(Nx, Ny, l)
+    bit1, bit2 = _bits(Nx, Ny, l)
     same_dir = 0
-    for b1, b2 in zip(*bits):
+    for b1, b2 in zip(bit1, bit2):
         upup, downdown = _repeated_spins(state, b1, b2)
         same_dir += upup + downdown
-    diff_dir = N - same_dir
+    diff_dir = len(bit1) - same_dir
     return 0.25 * (same_dir - diff_dir)
 
 
@@ -568,9 +568,13 @@ def _coeff(Nx, Ny, kx, ky, i, j):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     orig_state = ind_to_dec[i]
     cntd_state = ind_to_dec[j]
-    old_state_len = orig_state.shape.x * orig_state.shape.y
-    new_state_len = cntd_state.shape.x * cntd_state.shape.y
-    return np.sqrt(old_state_len / new_state_len)
+    orig_state_len = orig_state.shape.x * orig_state.shape.y
+    cntd_state_len = cntd_state.shape.x * cntd_state.shape.y
+    return np.sqrt(orig_state_len / cntd_state_len)
+
+
+def _format(N, state):
+    return format(state, '0{}b'.format(N))
 
 
 def H_pm_elements(Nx, Ny, kx, ky, i, l):
@@ -585,6 +589,9 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
                 new_state = state - b1 + b2
             elif downup:
                 new_state = state + b1 - b2
+            # print('bits: {} {}'.format(_format(b1), _format(b2)))
+            # print('updown: {}  downup: {}'.format(updown, downup))
+            # print('state: {}  connected state: {}\n'.format(_format(state), _format(new_state)))
 
             if new_state not in dec_to_ind.keys():
                 connected_state = _find_state(Nx, Ny, new_state, dec_to_ind)
@@ -594,12 +601,14 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
             try:
                 j = dec_to_ind[connected_state]
                 coeff = _coeff(Nx, Ny, kx, ky, i, j)
+                # print(coeff)
                 try:
                     j_element[j] += coeff
                 except KeyError:
                     j_element[j] = coeff
             except KeyError:
                 pass
+    # print(j_element)
     return j_element
 
 
@@ -690,10 +699,10 @@ def _offdiag_components(Nx, Ny, kx, ky, l, func):
     row, col, data = [], [], []
     for i in range(n):
         j_elements = func(Nx, Ny, kx, ky, i, l)
-        for j, count in j_elements.items():
+        for j, element in j_elements.items():
             row.append(i)
             col.append(j)
-            data.append(count)
+            data.append(element)
     return sparse.csc_matrix((data, (row, col)), shape=(n, n))
 
 
@@ -717,7 +726,7 @@ def H_pmz_matrix(Nx, Ny, kx, ky):
 
 
 @functools.lru_cache(maxsize=None)
-def hamiltonian_consv_k_components(Nx, Ny, kx, ky):
+def _recurring_operators(Nx, Ny, kx, ky):
     H_ppmm = H_ppmm_matrix(Nx, Ny, kx, ky)
     H_pmz = H_pmz_matrix(Nx, Ny, kx, ky)
     return H_ppmm, H_pmz
@@ -726,7 +735,7 @@ def hamiltonian_consv_k_components(Nx, Ny, kx, ky):
 def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
     H_z1 = H_z_matrix(Nx, Ny, kx, ky, 1)
     H_pm1 = H_pm_matrix(Nx, Ny, kx, ky, 1)
-    H_ppmm, H_pmz = hamiltonian_consv_k_components(Nx, Ny, kx, ky)
+    H_ppmm, H_pmz = _recurring_operators(Nx, Ny, kx, ky)
     nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + J_pmz * H_pmz
     second_neighbor_terms = third_neighbor_terms = 0
     if not J2 == 0:
