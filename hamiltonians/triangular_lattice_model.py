@@ -1,6 +1,5 @@
 from collections import namedtuple
 import copy
-import fractions
 import functools
 import numpy as np
 from scipy import sparse
@@ -246,8 +245,11 @@ def hamiltonian_dp(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
     components = hamiltonian_dp_components(Nx, Ny)
     H_pm1, H_z1, H_ppmm, H_pmz, H_pm2, H_z2, H_pm3, H_z3 = components
     nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + J_pmz * H_pmz
-    second_neighbor_terms = J2 * (H_pm2 + J_z / J_pm * H_z2)
-    third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
+    second_neighbor_terms = third_neighbor_terms = 0
+    if not J2 == 0:
+        second_neighbor_terms = J2 * (H_pm2 + J_z / J_pm * H_z2)
+    if not J3 == 0:
+        third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
     return nearest_neighbor_terms + second_neighbor_terms + third_neighbor_terms
 
 
@@ -496,8 +498,7 @@ def bloch_states(Nx, Ny, kx, ky):
     elif kx == 0:
         if check_bounds(Ny, ky):
             for s in zero_k_states.keys():
-                period = Ny // fractions.gcd(Ny, ky)
-                if s.y % period == 0:
+                if ky * s.y % Ny == 0:
                     for state in zero_k_states[s]:
                         states.append(state)
                         shapes.append(s)
@@ -506,8 +507,7 @@ def bloch_states(Nx, Ny, kx, ky):
     elif ky == 0:
         if check_bounds(Nx, kx):
             for s in zero_k_states.keys():
-                period = Nx // fractions.gcd(Nx, kx)
-                if s.x % period == 0:
+                if kx * s.x % Nx == 0:
                     for state in zero_k_states[s]:
                         states.append(state)
                         shapes.append(s)
@@ -515,9 +515,7 @@ def bloch_states(Nx, Ny, kx, ky):
             raise exceptions.NotFoundError
     elif check_bounds(Nx, kx) and check_bounds(Ny, ky):
         for s in zero_k_states.keys():
-            periodx = Nx // fractions.gcd(Nx, kx)
-            periody = Ny // fractions.gcd(Ny, ky)
-            if s.x % periodx == 0 and s.y % periody == 0:
+            if (kx * s.x % Nx == 0) and (ky * s.y % Ny == 0):
                 for state in zero_k_states[s]:
                     states.append(state)
                     shapes.append(s)
@@ -588,25 +586,20 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
             elif downup:
                 new_state = state + b1 - b2
 
-            N = Nx * Ny
-            print(updown, downup)
             if new_state not in dec_to_ind.keys():
                 connected_state = _find_state(Nx, Ny, new_state, dec_to_ind)
             else:
                 connected_state = new_state
 
-            print('\nbits:', format(b1, '0{}b'.format(N)),
-                  format(b2, '0{}b'.format(N)))
-            print(format(state, '0{}b'.format(N)),
-                  format(new_state, '0{}b'.format(N)),
-                  connected_state)
-            print(format(connected_state, '0{}b'.format(N)))
-            j = dec_to_ind[connected_state]
-            coeff = _coeff(Nx, Ny, kx, ky, i, j)
             try:
-                j_element[j] += coeff
+                j = dec_to_ind[connected_state]
+                coeff = _coeff(Nx, Ny, kx, ky, i, j)
+                try:
+                    j_element[j] += coeff
+                except KeyError:
+                    j_element[j] = coeff
             except KeyError:
-                j_element[j] = coeff
+                pass
     return j_element
 
 
@@ -632,12 +625,15 @@ def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
             else:
                 connected_state = new_state
 
-            j = dec_to_ind[connected_state]
-            coeff = _coeff(Nx, Ny, kx, ky, i, j)
             try:
-                j_element[j] += coeff * γ
+                j = dec_to_ind[connected_state]
+                coeff = _coeff(Nx, Ny, kx, ky, i, j)
+                try:
+                    j_element[j] += coeff * γ
+                except KeyError:
+                    j_element[j] = coeff * γ
             except KeyError:
-                j_element[j] = coeff * γ
+                pass
     return j_element
 
 
@@ -665,17 +661,21 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
             else:
                 connected_state = new_state
 
-            j = dec_to_ind[connected_state]
-            coeff = _coeff(Nx, Ny, kx, ky, i, j)
             try:
-                j_element[j] += sgn * γ * coeff
+                j = dec_to_ind[connected_state]
+                coeff = _coeff(Nx, Ny, kx, ky, i, j)
+                try:
+                    j_element[j] += sgn * γ * coeff
+                except KeyError:
+                    j_element[j] = sgn * γ * coeff
             except KeyError:
-                j_element[j] = sgn * γ * coeff
+                pass
 
             b1, b2 = b2, b1
     return j_element
 
 
+@functools.lru_cache(maxsize=None)
 def H_z_matrix(Nx, Ny, kx, ky, l):
     n = len(bloch_states(Nx, Ny, kx, ky))
     data = np.empty(n)
@@ -699,15 +699,18 @@ def _offdiag_components(Nx, Ny, kx, ky, l, func):
 
 # I'm partially applying the functions manually because the syntax of
 #  python does not lend itself well to the use of closures
+@functools.lru_cache(maxsize=None)
 def H_pm_matrix(Nx, Ny, kx, ky, l):
     return _offdiag_components(Nx, Ny, kx, ky, l, H_pm_elements)
 
 
+@functools.lru_cache(maxsize=None)
 def H_ppmm_matrix(Nx, Ny, kx, ky):
     l = 1
     return _offdiag_components(Nx, Ny, kx, ky, l, H_ppmm_elements)
 
 
+@functools.lru_cache(maxsize=None)
 def H_pmz_matrix(Nx, Ny, kx, ky):
     l = 1
     return 1j * _offdiag_components(Nx, Ny, kx, ky, l, H_pmz_elements)
@@ -715,24 +718,23 @@ def H_pmz_matrix(Nx, Ny, kx, ky):
 
 @functools.lru_cache(maxsize=None)
 def hamiltonian_consv_k_components(Nx, Ny, kx, ky):
-    H_z1 = H_z_matrix(Nx, Ny, kx, ky, 1)
-    H_z2 = H_z_matrix(Nx, Ny, kx, ky, 2)
-    H_z3 = H_z_matrix(Nx, Ny, kx, ky, 3)
-    print('####################      l = 1      ####################')
-    H_pm1 = H_pm_matrix(Nx, Ny, kx, ky, 1)
-    print('####################      l = 2      ####################')
-    H_pm2 = H_pm_matrix(Nx, Ny, kx, ky, 2)
-    print('####################      l = 3      ####################')
-    H_pm3 = H_pm_matrix(Nx, Ny, kx, ky, 3)
     H_ppmm = H_ppmm_matrix(Nx, Ny, kx, ky)
     H_pmz = H_pmz_matrix(Nx, Ny, kx, ky)
-    return H_z1, H_z2, H_z3, H_pm1, H_pm2, H_pm3, H_ppmm, H_pmz
+    return H_ppmm, H_pmz
 
 
 def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
-    H_components = hamiltonian_consv_k_components(Nx, Ny, kx, ky)
-    H_z1, H_z2, H_z3, H_pm1, H_pm2, H_pm3, H_ppmm, H_pmz = H_components
+    H_z1 = H_z_matrix(Nx, Ny, kx, ky, 1)
+    H_pm1 = H_pm_matrix(Nx, Ny, kx, ky, 1)
+    H_ppmm, H_pmz = hamiltonian_consv_k_components(Nx, Ny, kx, ky)
     nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + J_pmz * H_pmz
-    second_neighbor_terms = J2 * (H_pm2 + J_z / J_pm * H_z2)
-    third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
+    second_neighbor_terms = third_neighbor_terms = 0
+    if not J2 == 0:
+        H_z2 = H_z_matrix(Nx, Ny, kx, ky, 2)
+        H_pm2 = H_pm_matrix(Nx, Ny, kx, ky, 2)
+        second_neighbor_terms = J2 * (H_pm2 + J_z / J_pm * H_z2)
+    if not J3 == 0:
+        H_z3 = H_z_matrix(Nx, Ny, kx, ky, 3)
+        H_pm3 = H_pm_matrix(Nx, Ny, kx, ky, 3)
+        third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
     return nearest_neighbor_terms + second_neighbor_terms + third_neighbor_terms
