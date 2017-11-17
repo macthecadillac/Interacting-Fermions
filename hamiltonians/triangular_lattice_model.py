@@ -1,5 +1,4 @@
 from collections import namedtuple
-from itertools import chain
 import copy
 import functools
 import numpy as np
@@ -392,22 +391,47 @@ def _repeated_spins(state, b1, b2):
     return upup, downdown
 
 
-def _find_state(Nx, Ny, kx, ky, state, ind_to_dec, dec_to_ind):
+def _find_state(Nx, Ny, kx, ky, state):
     def _rollx(j):
         for ix in range(Nx):
             j = roll_x(j, Nx, Ny)
             if j in dec_to_ind.keys():
                 return j, ix
 
+    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     jstate = state
     for iy in range(Ny):
         jstate = roll_y(jstate, Nx, Ny)
         try:
             j, ix = _rollx(jstate)
             if j is not None:
-                shape = ind_to_dec[dec_to_ind[j]].shape
-                φx = np.exp(1j * 2 * np.pi * kx * (1 - ix / shape.x))
-                φy = np.exp(1j * 2 * np.pi * ky * (1 - iy / shape.y))
+                state = ind_to_dec[dec_to_ind[j]]
+                # x_repeat = Nx / state.shape.x
+                # y_repeat = Ny / state.shape.y
+                φx = np.exp(-1j * 2 * np.pi * kx * (1 - ix / state.shape.x))
+                φy = np.exp(-1j * 2 * np.pi * ky * (1 - iy / state.shape.y))
+
+                x_repeat = Nx // state.shape.x
+                y_repeat = Ny // state.shape.y
+                normfac_exp_x = np.exp(1j * np.pi * kx * np.linspace(0, 1, Nx))
+                normfac_exp_y = np.exp(1j * np.pi * ky * np.linspace(0, 1, Ny))
+                phases_x = np.sum(normfac_exp_x.reshape(x_repeat, -1), axis=1)
+                phases_y = np.sum(normfac_exp_y.reshape(y_repeat, -1), axis=1)
+                normfac_x = np.linalg.norm(phases_x)
+                normfac_y = np.linalg.norm(phases_y)
+                if abs(normfac_x) > 1e-11:
+                    φx /= normfac_x
+                else:
+                    φx = 0
+                if abs(normfac_y) > 1e-11:
+                    φy /= normfac_y
+                else:
+                    φy = 0
+                # print(φx, φy)
+                # φx = φy = 1
+                # φx = sum(φx) / np.sqrt(Nx / state.shape.x)
+                # φy = sum(φy) / np.sqrt(Ny / state.shape.y)
+                # φx = φy = 1
                 return j, φx, φy
         except TypeError:
             continue
@@ -571,20 +595,26 @@ def H_z_elements(Nx, Ny, kx, ky, i, l):
 
 @functools.lru_cache(maxsize=None)
 def _coeff(Nx, Ny, kx, ky, i, j):
-    def _normfac(N, k, shape):
-        φ = np.exp(1j * 2 * np.pi * k * np.linspace(0, 1, N, endpoint=False))
-        return np.sum(φ.reshape(shape, -1), axis=1)
+    # def _normfac(N, k, shape):
+    #     φ = np.exp(1j * 2 * np.pi * k * np.linspace(0, 1, N, endpoint=False))
+    #     return np.sum(φ.reshape(shape, -1), axis=1)
 
+    # ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+    # orig_state = ind_to_dec[i]
+    # cntd_state = ind_to_dec[j]
+    # orig_state_normfac_x = _normfac(Nx, kx, orig_state.shape.x)
+    # orig_state_normfac_y = _normfac(Ny, ky, orig_state.shape.y)
+    # cntd_state_normfac_x = _normfac(Nx, kx, cntd_state.shape.x)
+    # cntd_state_normfac_y = _normfac(Ny, ky, cntd_state.shape.y)
+    # orig_state_normfac = np.outer(orig_state_normfac_x, orig_state_normfac_y)
+    # cntd_state_normfac = np.outer(cntd_state_normfac_x, cntd_state_normfac_y)
+    # return np.linalg.norm(cntd_state_normfac) / np.linalg.norm(orig_state_normfac)
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     orig_state = ind_to_dec[i]
     cntd_state = ind_to_dec[j]
-    orig_state_normfac_x = _normfac(Nx, kx, orig_state.shape.x)
-    orig_state_normfac_y = _normfac(Ny, ky, orig_state.shape.y)
-    cntd_state_normfac_x = _normfac(Nx, kx, cntd_state.shape.x)
-    cntd_state_normfac_y = _normfac(Ny, ky, cntd_state.shape.y)
-    orig_state_normfac = np.outer(orig_state_normfac_x, orig_state_normfac_y)
-    cntd_state_normfac = np.outer(cntd_state_normfac_x, cntd_state_normfac_y)
-    return np.linalg.norm(cntd_state_normfac) / np.linalg.norm(orig_state_normfac)
+    orig_state_len = orig_state.shape.x * orig_state.shape.y
+    cntd_state_len = cntd_state.shape.x * cntd_state.shape.y
+    return np.sqrt(orig_state_len / cntd_state_len)
 
 
 def _format(N, state):
@@ -606,9 +636,7 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
 
             try:
                 if new_state not in dec_to_ind.keys():
-                    cntd_state, φx, φy = _find_state(Nx, Ny, kx, ky,
-                                                     new_state, ind_to_dec,
-                                                     dec_to_ind)
+                    cntd_state, φx, φy = _find_state(Nx, Ny, kx, ky, new_state)
                 else:
                     cntd_state = new_state
                     φx = φy = 1
@@ -643,7 +671,7 @@ def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
                 # find what connected state it is if the state we got from bit-
                 #  flipping is not in our records
                 if new_state not in dec_to_ind.keys():
-                    connected_state, φx, φy = _find_state(Nx, Ny, kx, ky, new_state, dec_to_ind)
+                    connected_state, φx, φy = _find_state(Nx, Ny, kx, ky, new_state)
                 else:
                     connected_state = new_state
                     φx = φy = 0
