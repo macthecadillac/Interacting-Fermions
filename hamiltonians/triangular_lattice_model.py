@@ -392,19 +392,25 @@ def _repeated_spins(state, b1, b2):
     return upup, downdown
 
 
-def _find_state(Nx, Ny, state, dec_to_ind):
+def _find_state(Nx, Ny, kx, ky, state, ind_to_dec, dec_to_ind):
     def _rollx(j):
-        for _ in range(Nx):
+        for ix in range(Nx):
             j = roll_x(j, Nx, Ny)
             if j in dec_to_ind.keys():
-                return j
+                return j, ix
 
     jstate = state
-    for _ in range(Ny):
+    for iy in range(Ny):
         jstate = roll_y(jstate, Nx, Ny)
-        j = _rollx(jstate)
-        if j is not None:
-            return j
+        try:
+            j, ix = _rollx(jstate)
+            if j is not None:
+                shape = ind_to_dec[dec_to_ind[j]].shape
+                φx = np.exp(1j * 2 * np.pi * kx * (1 - ix / shape.x))
+                φy = np.exp(1j * 2 * np.pi * ky * (1 - iy / shape.y))
+                return j, φx, φy
+        except TypeError:
+            continue
 
 
 @functools.lru_cache(maxsize=None)
@@ -565,12 +571,20 @@ def H_z_elements(Nx, Ny, kx, ky, i, l):
 
 @functools.lru_cache(maxsize=None)
 def _coeff(Nx, Ny, kx, ky, i, j):
+    def _normfac(N, k, shape):
+        φ = np.exp(1j * 2 * np.pi * k * np.linspace(0, 1, N, endpoint=False))
+        return np.sum(φ.reshape(shape, -1), axis=1)
+
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     orig_state = ind_to_dec[i]
     cntd_state = ind_to_dec[j]
-    orig_state_len = orig_state.shape.x * orig_state.shape.y
-    cntd_state_len = cntd_state.shape.x * cntd_state.shape.y
-    return np.sqrt(orig_state_len / cntd_state_len)
+    orig_state_normfac_x = _normfac(Nx, kx, orig_state.shape.x)
+    orig_state_normfac_y = _normfac(Ny, ky, orig_state.shape.y)
+    cntd_state_normfac_x = _normfac(Nx, kx, cntd_state.shape.x)
+    cntd_state_normfac_y = _normfac(Ny, ky, cntd_state.shape.y)
+    orig_state_normfac = np.outer(orig_state_normfac_x, orig_state_normfac_y)
+    cntd_state_normfac = np.outer(cntd_state_normfac_x, cntd_state_normfac_y)
+    return np.linalg.norm(cntd_state_normfac) / np.linalg.norm(orig_state_normfac)
 
 
 def _format(N, state):
@@ -589,26 +603,24 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
                 new_state = state - b1 + b2
             elif downup:
                 new_state = state + b1 - b2
-            # print('bits: {} {}'.format(_format(b1), _format(b2)))
-            # print('updown: {}  downup: {}'.format(updown, downup))
-            # print('state: {}  connected state: {}\n'.format(_format(state), _format(new_state)))
-
-            if new_state not in dec_to_ind.keys():
-                connected_state = _find_state(Nx, Ny, new_state, dec_to_ind)
-            else:
-                connected_state = new_state
 
             try:
-                j = dec_to_ind[connected_state]
-                coeff = _coeff(Nx, Ny, kx, ky, i, j)
-                # print(coeff)
+                if new_state not in dec_to_ind.keys():
+                    cntd_state, φx, φy = _find_state(Nx, Ny, kx, ky,
+                                                     new_state, ind_to_dec,
+                                                     dec_to_ind)
+                else:
+                    cntd_state = new_state
+                    φx = φy = 1
+
+                j = dec_to_ind[cntd_state]
+                coeff = φx * φy * _coeff(Nx, Ny, kx, ky, i, j)
                 try:
                     j_element[j] += coeff
                 except KeyError:
                     j_element[j] = coeff
-            except KeyError:
+            except TypeError:
                 pass
-    # print(j_element)
     return j_element
 
 
@@ -627,21 +639,22 @@ def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
                 new_state = state + b1 + b2
                 γ = _gamma_from_bits(Nx, Ny, b1, b2)
 
-            # find what connected state it is if the state we got from bit-
-            #  flipping is not in our records
-            if new_state not in dec_to_ind.keys():
-                connected_state = _find_state(Nx, Ny, new_state, dec_to_ind)
-            else:
-                connected_state = new_state
-
             try:
+                # find what connected state it is if the state we got from bit-
+                #  flipping is not in our records
+                if new_state not in dec_to_ind.keys():
+                    connected_state, φx, φy = _find_state(Nx, Ny, kx, ky, new_state, dec_to_ind)
+                else:
+                    connected_state = new_state
+                    φx = φy = 0
+
                 j = dec_to_ind[connected_state]
-                coeff = _coeff(Nx, Ny, kx, ky, i, j)
+                coeff = φx * φy * _coeff(Nx, Ny, kx, ky, i, j)
                 try:
                     j_element[j] += coeff * γ
                 except KeyError:
                     j_element[j] = coeff * γ
-            except KeyError:
+            except TypeError:
                 pass
     return j_element
 
