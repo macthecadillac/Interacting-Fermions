@@ -134,6 +134,8 @@ def structural_factor(Nx, Ny, kx, ky, ψ):
     s: float
     """
     @utils.cache.cache_to_ram
+    # the results are cached without regard to ψ (couldn't think of a better way
+    #  to handle this). Use with care
     def _spin_correlation_vals(N):
         Sij = []
         z_mats = _create_z_mats(N)
