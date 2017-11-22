@@ -394,46 +394,40 @@ def _repeated_spins(state, b1, b2):
 def _find_state(Nx, Ny, kx, ky, state):
     def _rollx(j):
         for ix in range(Nx):
-            j = roll_x(j, Nx, Ny)
             if j in dec_to_ind.keys():
                 return j, ix
+            else:
+                j = roll_x(j, Nx, Ny)
 
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    jstate = state
+    j = state
     for iy in range(Ny):
-        jstate = roll_y(jstate, Nx, Ny)
         try:
-            j, ix = _rollx(jstate)
-            if j is not None:
-                state_shape = ind_to_dec[dec_to_ind[j]].shape
-                φx = np.exp(-1j * 2 * np.pi * kx * (1 - ix / state_shape.x))
-                φy = np.exp(-1j * 2 * np.pi * ky * (1 - iy / state_shape.y))
-                return j, φx, φy
+            j, ix = _rollx(j)
+            full_state = ind_to_dec[dec_to_ind[j]]
+            φx = np.exp(1j * 2 * np.pi * kx * ix / full_state.shape.x)
+            φy = np.exp(1j * 2 * np.pi * ky * iy / full_state.shape.y)
+            phase = φx * φy
+            return full_state, phase
         except TypeError:
-            continue
+            j = roll_y(j, Nx, Ny)
 
 
 @functools.lru_cache(maxsize=None)
 def _gamma(Nx, Ny, b1, b2):
-    N = Nx * Ny
     m = int(round(np.log2(b1)))
     n = int(round(np.log2(b2)))
-    diff = abs(m - n)
-    det = min(N - diff, diff)
-    if det == Nx:
-        γ = np.exp(-1j * 2 * np.pi / 3)
-    elif det == 1:
-        γ = 1
-    else:
-        γ = np.exp(1j * 2 * np.pi / 3)
-    return γ
+    vec1 = SiteVector.from_index(m, Nx, Ny)
+    vec2 = SiteVector.from_index(n, Nx, Ny)
+    ang = vec1.angle_with(vec2)
+    return np.exp(1j * ang)
 
 
 @functools.lru_cache(maxsize=None)
 def _bits(Nx, Ny, l):
     bit1, bit2 = [], []
-    range_orders = _generate_bonds(Nx, Ny)
-    bonds = range_orders[l - 1]
+    bond_orders = _generate_bonds(Nx, Ny)
+    bonds = bond_orders[l - 1]
     for bond in bonds:
         bit1.append(bond[0].lattice_index)
         bit2.append(bond[1].lattice_index)
@@ -571,26 +565,38 @@ def H_z_elements(Nx, Ny, kx, ky, i, l):
 
 @functools.lru_cache(maxsize=None)
 def _coeff(Nx, Ny, kx, ky, i, j):
-    # def _normfac(N, k, shape):
-    #     φ = np.exp(1j * 2 * np.pi * k * np.linspace(0, 1, N, endpoint=False))
-    #     return np.sum(φ.reshape(shape, -1), axis=1)
-
-    # ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    # orig_state = ind_to_dec[i]
-    # cntd_state = ind_to_dec[j]
-    # orig_state_normfac_x = _normfac(Nx, kx, orig_state.shape.x)
-    # orig_state_normfac_y = _normfac(Ny, ky, orig_state.shape.y)
-    # cntd_state_normfac_x = _normfac(Nx, kx, cntd_state.shape.x)
-    # cntd_state_normfac_y = _normfac(Ny, ky, cntd_state.shape.y)
-    # orig_state_normfac = np.outer(orig_state_normfac_x, orig_state_normfac_y)
-    # cntd_state_normfac = np.outer(cntd_state_normfac_x, cntd_state_normfac_y)
-    # return np.linalg.norm(cntd_state_normfac) / np.linalg.norm(orig_state_normfac)
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     orig_state = ind_to_dec[i]
     cntd_state = ind_to_dec[j]
     orig_state_len = orig_state.shape.x * orig_state.shape.y
     cntd_state_len = cntd_state.shape.x * cntd_state.shape.y
-    return np.sqrt(orig_state_len / cntd_state_len)
+    coeff = np.sqrt(orig_state_len / cntd_state_len)
+    if not (kx == 0 and ky == 0):
+        if cntd_state.shape.x < Nx:
+            if ky == 0:
+                # coeff *= Nx / cntd_state.shape.x
+                coeff **= 2
+            else:
+                coeff = 0
+        if orig_state.shape.x < Nx:
+            if ky == 0:
+                # coeff *= Nx / orig_state.shape.x
+                coeff **= 2
+            else:
+                coeff = 0
+        if cntd_state.shape.y < Ny:
+            if kx == 0:
+                # coeff *= Ny / cntd_state.shape.y
+                coeff **= 2
+            else:
+                coeff = 0
+        if orig_state.shape.y < Ny:
+            if kx == 0:
+                # coeff *= Ny / orig_state.shape.y
+                coeff **= 2
+            else:
+                coeff = 0
+    return coeff
 
 
 def _format(N, state):
@@ -599,31 +605,54 @@ def _format(N, state):
 
 def H_pm_elements(Nx, Ny, kx, ky, i, l):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    state = ind_to_dec[i].dec
+    state = ind_to_dec[i]
     j_element = {}
     bits = _bits(Nx, Ny, l)
     for b1, b2 in zip(*bits):
-        updown, downup = _exchange_spin_flips(state, b1, b2)
+        updown, downup = _exchange_spin_flips(state.dec, b1, b2)
         if updown or downup:
             if updown:
-                new_state = state - b1 + b2
+                new_state = state.dec - b1 + b2
             elif downup:
-                new_state = state + b1 - b2
+                new_state = state.dec + b1 - b2
 
             try:
-                if new_state not in dec_to_ind.keys():
-                    cntd_state, φx, φy = _find_state(Nx, Ny, kx, ky, new_state)
-                else:
-                    cntd_state = new_state
-                    φx = φy = 1
+                # find what connected state it is if the state we got from bit-
+                #  flipping is not in our records
+                cntd_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
+                # phase1 = phase
+                j = dec_to_ind[cntd_state.dec]
+                coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
 
-                j = dec_to_ind[cntd_state]
-                coeff = φx * φy * _coeff(Nx, Ny, kx, ky, i, j)
+                # N = Nx * Ny
+                # if (i, j) == (18, 6) or (i, j) == (6, 18):
+                #     print('orig state: {}\tnew state: {}\tconnected state: {}'
+                #           .format(_format(N, state), _format(N, new_state),
+                #                   _format(N, cntd_state.dec)))
+                #     print('connected state shape: {}'.format(cntd_state.shape))
+                #     print((i, j), cntd_state.shape.x, Nx, cntd_state.shape.y, Ny,
+                #           phase1, phase1 * _coeff(Nx, Ny, kx, ky, i, j), '\n')
+
+                # print(i, j, phase, coeff, cntd_state.shape.x, Nx, cntd_state.shape.y, Ny)
+                # N = Nx * Ny
+                # if i in [6, 35]:
+                #     print('{}   \torig state: {}\tnew state: {}\tconnected state: {}'
+                #           .format((i, j), _format(N, state), _format(N, new_state),
+                #                   _format(N, cntd_state), '\n'))
+                # if (i, j) == (35, 6):
+                #     print(coeff, phase)
+                #     print(_format(N, state), _format(N, new_state),
+                #           _format(N, cntd_state), _coeff(Nx, Ny, kx, ky, i, j), '\n')
+                # elif (i, j) == (6, 35):
+                #     print('\t\t\t\t', coeff)
+                #     N = Nx * Ny
+                #     print(_format(N, state), _format(N, new_state),
+                #           _format(N, cntd_state), _coeff(Nx, Ny, kx, ky, i, j), '\n')
                 try:
                     j_element[j] += coeff
                 except KeyError:
                     j_element[j] = coeff
-            except TypeError:
+            except TypeError:  # connecting to a zero state
                 pass
     return j_element
 
@@ -644,16 +673,9 @@ def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
                 γ = _gamma(Nx, Ny, b1, b2)
 
             try:
-                # find what connected state it is if the state we got from bit-
-                #  flipping is not in our records
-                if new_state not in dec_to_ind.keys():
-                    connected_state, φx, φy = _find_state(Nx, Ny, kx, ky, new_state)
-                else:
-                    connected_state = new_state
-                    φx = φy = 1
-
-                j = dec_to_ind[connected_state]
-                coeff = φx * φy * _coeff(Nx, Ny, kx, ky, i, j)
+                connected_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
+                j = dec_to_ind[connected_state.dec]
+                coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
                 try:
                     j_element[j] += coeff * γ
                 except KeyError:
@@ -671,9 +693,9 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
     for b1, b2 in zip(*bits):
         for _ in range(2):
             if state | b1 == state:
-                sgn = 1
+                z_contrib = 0.5
             else:
-                sgn = -1
+                z_contrib = -0.5
 
             if state | b2 == state:
                 new_state = state - b2
@@ -682,20 +704,15 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
                 new_state = state + b2
                 γ = -_gamma(Nx, Ny, b1, b2)
 
-            if new_state not in dec_to_ind.keys():
-                connected_state, φx, φy = _find_state(Nx, Ny, kx, ky, new_state)
-            else:
-                connected_state = new_state
-                φx = φy = 1
-
             try:
-                j = dec_to_ind[connected_state]
-                coeff = φx * φy * _coeff(Nx, Ny, kx, ky, i, j)
+                connected_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
+                j = dec_to_ind[connected_state.dec]
+                coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
                 try:
-                    j_element[j] += sgn * γ * coeff
+                    j_element[j] += z_contrib * γ * coeff
                 except KeyError:
-                    j_element[j] = sgn * γ * coeff
-            except KeyError:
+                    j_element[j] = z_contrib * γ * coeff
+            except TypeError:
                 pass
 
             b1, b2 = b2, b1
