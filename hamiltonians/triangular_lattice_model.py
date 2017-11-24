@@ -571,31 +571,12 @@ def _coeff(Nx, Ny, kx, ky, i, j):
     orig_state_len = orig_state.shape.x * orig_state.shape.y
     cntd_state_len = cntd_state.shape.x * cntd_state.shape.y
     coeff = np.sqrt(orig_state_len / cntd_state_len)
-    if not (kx == 0 and ky == 0):
-        if cntd_state.shape.x < Nx:
-            if ky == 0:
-                # coeff *= Nx / cntd_state.shape.x
-                coeff **= 2
-            else:
-                coeff = 0
-        if orig_state.shape.x < Nx:
-            if ky == 0:
-                # coeff *= Nx / orig_state.shape.x
-                coeff **= 2
-            else:
-                coeff = 0
-        if cntd_state.shape.y < Ny:
-            if kx == 0:
-                # coeff *= Ny / cntd_state.shape.y
-                coeff **= 2
-            else:
-                coeff = 0
-        if orig_state.shape.y < Ny:
-            if kx == 0:
-                # coeff *= Ny / orig_state.shape.y
-                coeff **= 2
-            else:
-                coeff = 0
+    if not kx == 0:
+        if cntd_state.shape.x * kx % orig_state.shape.x != 0 or orig_state.shape.x * kx % cntd_state.shape.x != 0:
+            coeff = 0
+    if not ky == 0:
+        if cntd_state.shape.y * ky % orig_state.shape.y != 0 or orig_state.shape.y * ky % cntd_state.shape.y != 0:
+            coeff = 0
     return coeff
 
 
@@ -603,11 +584,35 @@ def _format(N, state):
     return format(state, '0{}b'.format(N))
 
 
+# def _find_T_invariant_set(Nx, Ny, i):
+#     b = [i]
+#     j = i
+#     while True:
+#         j = roll_x(j, Nx, Ny)
+#         if not j == i:
+#             b.append(j)
+#         else:
+#             break
+#     b = np.array(b)
+#     bloch_func = [b]
+#     u = b.copy()
+#     while True:
+#         u = roll_y(u, Nx, Ny)
+#         if not np.sort(u)[0] == np.sort(b)[0]:
+#             bloch_func.append(u)
+#         else:
+#             break
+#     bloch_func = np.array(bloch_func, dtype=np.int64)
+#     shape = bloch_func.shape
+#     return bloch_func.flatten().repeat((Nx * Ny) // (shape[0] * shape[1]))
+
+
 def H_pm_elements(Nx, Ny, kx, ky, i, l):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     state = ind_to_dec[i]
     j_element = {}
     bits = _bits(Nx, Ny, l)
+    # new_states = []
     for b1, b2 in zip(*bits):
         updown, downup = _exchange_spin_flips(state.dec, b1, b2)
         if updown or downup:
@@ -615,7 +620,12 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
                 new_state = state.dec - b1 + b2
             elif downup:
                 new_state = state.dec + b1 - b2
+            # print(_find_T_invariant_set(Nx, Ny, new_state))
+            # new_states.extend(_find_T_invariant_set(Nx, Ny, new_state))
+            # new_states.append(new_state)
+    # print(new_states)
 
+    # for new_state in new_states:
             try:
                 # find what connected state it is if the state we got from bit-
                 #  flipping is not in our records
