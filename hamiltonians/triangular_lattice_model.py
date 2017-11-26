@@ -6,10 +6,10 @@ from scipy import sparse
 from spinsys import constructors, half, dmrg, exceptions
 
 
-Shape = namedtuple('Shape', 'x, y')
+Pair = namedtuple('Pair', 'x, y')
 Momentum = namedtuple('Momentum', 'kx, ky')
 # dec is the decimanl representation of one constituent product state of a Bloch function
-BlochFunc = namedtuple('BlochFunc', 'dec, shape')
+BlochFunc = namedtuple('BlochFunc', 'lead, decs, dims')
 
 
 class SiteVector(constructors.PeriodicBCSiteVector):
@@ -271,7 +271,7 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
         super().__init__()
 
     def initialize_storage(self):
-        init_block = sparse.csc_matrix(([], ([], [])), shape=[2, 2])
+        init_block = sparse.csc_matrix(([], ([], [])), dims=[2, 2])
         init_ops = self.generators
         self.storage = dmrg.Storage(init_block, init_block, init_ops)
 
@@ -314,8 +314,11 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
 class BlochTable:
 
     def __init__(self, states, shapes):
-        self.data = [states, shapes]
+        leading_states = [s[0, 0] for s in states]
+        self.data = [leading_states, states, shapes]
         self.dataT = list(zip(*self.data))
+        self.bloch_state = {}
+        self._populate_dict()
 
     def __getitem__(self, i):
         return BlochFunc(*self.dataT[i])
@@ -323,22 +326,19 @@ class BlochTable:
     def __len__(self):
         return len(self.data[0])
 
+    def _populate_dict(self):
+        for state in self.data[1]:
+            for dec in state.flatten():
+                self.bloch_state[dec] = state
+
     def sort(self):
-        table = zip(*self.data)
-        table = sorted(table, key=lambda x: x[0])
+        table = sorted(self.dataT, key=lambda x: x[0])
+        self.dataT = table
         self.data = list(zip(*table))
-        self.dataT = list(zip(*self.data))
 
     @property
-    def dec(self):
+    def leading_states(self):
         return self.data[0]
-
-
-def slice_state(state, Nx, Ny):
-    # slice a given state into different "numbers" with each corresponding to
-    #  one leg in the x-direction.
-    n = np.arange(0, Nx * Ny, Nx)
-    return state % (2 ** (n + Nx)) // (2 ** n)
 
 
 @functools.lru_cache(maxsize=None)
@@ -391,26 +391,25 @@ def _repeated_spins(state, b1, b2):
     return upup, downdown
 
 
-def _find_state(Nx, Ny, kx, ky, state):
-    def _rollx(j):
-        for ix in range(Nx):
-            if j in dec_to_ind.keys():
-                return j, ix
-            else:
-                j = roll_x(j, Nx, Ny)
+@functools.lru_cache(maxsize=None)
+def _unnormalized_components_aux(N, k, length):
+    mprime_max = N // length
+    m = np.arange(length).repeat(mprime_max).reshape(-1, mprime_max).T
+    mprime = np.arange(mprime_max).repeat(length).reshape(mprime_max, -1)
+    phases = np.exp(2j * np.pi * k * (mprime * length + m) / N)
+    coeffs = np.sum(phases, axis=0)
+    return coeffs
 
-    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    j = state
-    for iy in range(Ny):
-        try:
-            j, ix = _rollx(j)
-            full_state = ind_to_dec[dec_to_ind[j]]
-            φx = np.exp(1j * 2 * np.pi * kx * ix / full_state.shape.x)
-            φy = np.exp(1j * 2 * np.pi * ky * iy / full_state.shape.y)
-            phase = φx * φy
-            return full_state, phase
-        except TypeError:
-            j = roll_y(j, Nx, Ny)
+
+@functools.lru_cache(maxsize=None)
+def _unnormalized_components(Nx, Ny, kx, ky, dims):
+    coeffs_x = _unnormalized_components_aux(Nx, kx, dims.x)
+    coeffs_y = _unnormalized_components_aux(Ny, ky, dims.y)
+    # print('Ns: ({}, {})    k: ({}, {})    dims: {}'.format(Nx, Ny, kx, ky, dims))
+    # print('x coeffs: {}'.format(coeffs_x))
+    # print('y coeffs: {}'.format(coeffs_y))
+    # print('coeffs:\n{}\n'.format(np.outer(coeffs_y, coeffs_x)))
+    return np.outer(coeffs_y, coeffs_x)
 
 
 @functools.lru_cache(maxsize=None)
@@ -464,17 +463,19 @@ def zero_momentum_states(Nx, Ny):
                 break
         bloch_func = np.array(bloch_func, dtype=np.int64)
         try:
-            shape = bloch_func.shape
-            s = Shape(x=shape[1], y=shape[0])
-            states[s].append(i)
+            dims = bloch_func.shape
+            s = Pair(x=dims[1], y=dims[0])
+            # states[s].append(i)
+            states[s].append(bloch_func)
         except KeyError:
-            states[s] = [i]
+            # states[s] = [i]
+            states[s] = [bloch_func]
 
     N = Nx * Ny
     sieve = np.ones(2 ** N, dtype=np.int8)
     sieve[0] = sieve[-1] = 0
     maxdec = 2 ** N - 1
-    states = {Shape(1, 1): [0, maxdec]}
+    states = {Pair(1, 1): [np.array([[0]]), np.array([[maxdec]])]}
     for i in range(maxdec + 1):
         if sieve[i]:
             find_T_invariant_set(i)
@@ -482,55 +483,55 @@ def zero_momentum_states(Nx, Ny):
 
 
 @functools.lru_cache(maxsize=None)
-def bloch_states(Nx, Ny, kx, ky):
+def _bloch_states(Nx, Ny, kx, ky):
     def check_bounds(N, k):
-        return k > 0 or (k < 0 and ((not -k == N // 2) or (not N % 2 == 0)))
+        return k < 0 and (-k == N // 2 and N % 2 == 0)
 
-    zero_k_states = zero_momentum_states(Nx, Ny)
     if abs(kx) > Nx // 2 or abs(ky) > Ny // 2:
         raise exceptions.NotFoundError
-
-    states, shapes = [], []
-    if kx == 0 and ky == 0:
-        for s in zero_k_states.keys():
-            for state in zero_k_states[s]:
-                states.append(state)
-                shapes.append(s)
-    elif kx == 0:
-        if check_bounds(Ny, ky):
-            for s in zero_k_states.keys():
-                if ky * s.y % Ny == 0:
-                    for state in zero_k_states[s]:
-                        states.append(state)
-                        shapes.append(s)
-        else:
-            raise exceptions.NotFoundError
-    elif ky == 0:
-        if check_bounds(Nx, kx):
-            for s in zero_k_states.keys():
-                if kx * s.x % Nx == 0:
-                    for state in zero_k_states[s]:
-                        states.append(state)
-                        shapes.append(s)
-        else:
-            raise exceptions.NotFoundError
-    elif check_bounds(Nx, kx) and check_bounds(Ny, ky):
-        for s in zero_k_states.keys():
-            if (kx * s.x % Nx == 0) and (ky * s.y % Ny == 0):
-                for state in zero_k_states[s]:
-                    states.append(state)
-                    shapes.append(s)
-    else:
+    elif check_bounds(Nx, kx) or check_bounds(Ny, ky):
         raise exceptions.NotFoundError
+
+    zero_k_states = zero_momentum_states(Nx, Ny)
+    states, shapes = [], []
+    for dims, state_list in zero_k_states.items():
+        components = _unnormalized_components(Nx, Ny, kx, ky, dims)
+        # print(Momentum(kx, ky), dims, components)
+        if np.linalg.norm(components) > 1e-8:
+            nstates = len(state_list)
+            states.extend(state_list)
+            shapes.extend([dims] * nstates)
+
+    if not states:
+        raise exceptions.NotFoundError
+
     table = BlochTable(states, shapes)
     table.sort()
     return table
 
 
+def _find_leading_state(Nx, Ny, kx, ky, state):
+    bloch_states = _bloch_states(Nx, Ny, kx, ky)
+
+    try:
+        full_state = bloch_states.bloch_state[state]
+    except KeyError:
+        raise exceptions.NotFoundError
+
+    lead = full_state[0, 0]
+    ylen, xlen = full_state.shape
+    iy, ix = np.where(full_state == state)
+    ix, iy = ix[0], iy[0]  # ix and iy are single element arrays. we want floats
+    xphase = np.exp(2j * np.pi * kx * ix / xlen)
+    yphase = np.exp(2j * np.pi * ky * iy / ylen)
+    phase = xphase * yphase
+    return lead, phase
+
+
 @functools.lru_cache(maxsize=None)
 def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
-    states = bloch_states(Nx, Ny, kx, ky)
-    dec = states.dec
+    states = _bloch_states(Nx, Ny, kx, ky)
+    dec = states.leading_states
     nstates = len(dec)
     inds = list(range(nstates))
     dec_to_ind = dict(zip(dec, inds))
@@ -545,22 +546,10 @@ def all_bloch_states(Nx, Ny):
     for kx in range(-max_kx, max_kx + 1):
         for ky in range(-max_ky, max_ky + 1):
             try:
-                states[Momentum(kx, ky)] = bloch_states(Nx, Ny, kx, ky)
+                states[Momentum(kx, ky)] = _bloch_states(Nx, Ny, kx, ky)
             except exceptions.NotFoundError:
                 continue
     return states
-
-
-def H_z_elements(Nx, Ny, kx, ky, i, l):
-    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    state = ind_to_dec[i].dec
-    bit1, bit2 = _bits(Nx, Ny, l)
-    same_dir = 0
-    for b1, b2 in zip(bit1, bit2):
-        upup, downdown = _repeated_spins(state, b1, b2)
-        same_dir += upup + downdown
-    diff_dir = len(bit1) - same_dir
-    return 0.25 * (same_dir - diff_dir)
 
 
 @functools.lru_cache(maxsize=None)
@@ -568,43 +557,45 @@ def _coeff(Nx, Ny, kx, ky, i, j):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     orig_state = ind_to_dec[i]
     cntd_state = ind_to_dec[j]
-    orig_state_len = orig_state.shape.x * orig_state.shape.y
-    cntd_state_len = cntd_state.shape.x * cntd_state.shape.y
-    coeff = np.sqrt(orig_state_len / cntd_state_len)
-    if not kx == 0:
-        if cntd_state.shape.x * kx % orig_state.shape.x != 0 or orig_state.shape.x * kx % cntd_state.shape.x != 0:
-            coeff = 0
-    if not ky == 0:
-        if cntd_state.shape.y * ky % orig_state.shape.y != 0 or orig_state.shape.y * ky % cntd_state.shape.y != 0:
-            coeff = 0
+    # coefficients of the yet to be normalized Bloch state components
+    coeffs_i = _unnormalized_components(Nx, Ny, kx, ky, orig_state.dims)
+    coeffs_j = _unnormalized_components(Nx, Ny, kx, ky, cntd_state.dims)
+    # normalization factors
+    normfac_i = np.linalg.norm(coeffs_i)
+    normfac_j = np.linalg.norm(coeffs_j)
+    coeff = normfac_j / normfac_i
     return coeff
+
+
+# @functools.lru_cache(maxsize=None)
+# def _coeffv2(Nx, Ny, kx, ky, i, j):
+#     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+#     orig_state = ind_to_dec[i]
+#     cntd_state = ind_to_dec[j]
+#     # coefficients of the yet to be normalized Bloch state components
+#     coeffs_i = _unnormalized_components(Nx, Ny, kx, ky, orig_state.dims)
+#     coeffs_j = _unnormalized_components(Nx, Ny, 0, 0, cntd_state.dims)
+#     # normalization factors
+#     normfac_i = np.linalg.norm(coeffs_i)
+#     normfac_j = np.linalg.norm(coeffs_j)
+#     coeff = normfac_j / normfac_i
+#     return coeff
 
 
 def _format(N, state):
     return format(state, '0{}b'.format(N))
 
 
-# def _find_T_invariant_set(Nx, Ny, i):
-#     b = [i]
-#     j = i
-#     while True:
-#         j = roll_x(j, Nx, Ny)
-#         if not j == i:
-#             b.append(j)
-#         else:
-#             break
-#     b = np.array(b)
-#     bloch_func = [b]
-#     u = b.copy()
-#     while True:
-#         u = roll_y(u, Nx, Ny)
-#         if not np.sort(u)[0] == np.sort(b)[0]:
-#             bloch_func.append(u)
-#         else:
-#             break
-#     bloch_func = np.array(bloch_func, dtype=np.int64)
-#     shape = bloch_func.shape
-#     return bloch_func.flatten().repeat((Nx * Ny) // (shape[0] * shape[1]))
+def H_z_elements(Nx, Ny, kx, ky, i, l):
+    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+    state = ind_to_dec[i]
+    bit1, bit2 = _bits(Nx, Ny, l)
+    same_dir = 0
+    for b1, b2 in zip(bit1, bit2):
+        upup, downdown = _repeated_spins(state.lead, b1, b2)
+        same_dir += upup + downdown
+    diff_dir = len(bit1) - same_dir
+    return 0.25 * (same_dir - diff_dir)
 
 
 def H_pm_elements(Nx, Ny, kx, ky, i, l):
@@ -612,117 +603,134 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
     state = ind_to_dec[i]
     j_element = {}
     bits = _bits(Nx, Ny, l)
-    # new_states = []
     for b1, b2 in zip(*bits):
-        updown, downup = _exchange_spin_flips(state.dec, b1, b2)
+        updown, downup = _exchange_spin_flips(state.lead, b1, b2)
         if updown or downup:
             if updown:
-                new_state = state.dec - b1 + b2
+                new_state = state.lead - b1 + b2
             elif downup:
-                new_state = state.dec + b1 - b2
-            # print(_find_T_invariant_set(Nx, Ny, new_state))
-            # new_states.extend(_find_T_invariant_set(Nx, Ny, new_state))
-            # new_states.append(new_state)
-    # print(new_states)
+                new_state = state.lead + b1 - b2
 
-    # for new_state in new_states:
             try:
                 # find what connected state it is if the state we got from bit-
                 #  flipping is not in our records
-                cntd_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
-                # phase1 = phase
-                j = dec_to_ind[cntd_state.dec]
+                lead, phase = _find_leading_state(Nx, Ny, kx, ky, new_state)
+                j = dec_to_ind[lead]
                 coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
 
-                # N = Nx * Ny
-                # if (i, j) == (18, 6) or (i, j) == (6, 18):
-                #     print('orig state: {}\tnew state: {}\tconnected state: {}'
-                #           .format(_format(N, state), _format(N, new_state),
-                #                   _format(N, cntd_state.dec)))
-                #     print('connected state shape: {}'.format(cntd_state.shape))
-                #     print((i, j), cntd_state.shape.x, Nx, cntd_state.shape.y, Ny,
-                #           phase1, phase1 * _coeff(Nx, Ny, kx, ky, i, j), '\n')
-
-                # print(i, j, phase, coeff, cntd_state.shape.x, Nx, cntd_state.shape.y, Ny)
-                # N = Nx * Ny
-                # if i in [6, 35]:
-                #     print('{}   \torig state: {}\tnew state: {}\tconnected state: {}'
-                #           .format((i, j), _format(N, state), _format(N, new_state),
-                #                   _format(N, cntd_state), '\n'))
-                # if (i, j) == (35, 6):
-                #     print(coeff, phase)
-                #     print(_format(N, state), _format(N, new_state),
-                #           _format(N, cntd_state), _coeff(Nx, Ny, kx, ky, i, j), '\n')
-                # elif (i, j) == (6, 35):
-                #     print('\t\t\t\t', coeff)
-                #     N = Nx * Ny
-                #     print(_format(N, state), _format(N, new_state),
-                #           _format(N, cntd_state), _coeff(Nx, Ny, kx, ky, i, j), '\n')
                 try:
                     j_element[j] += coeff
                 except KeyError:
                     j_element[j] = coeff
-            except TypeError:  # connecting to a zero state
+            except exceptions.NotFoundError:  # connecting to a zero state
                 pass
     return j_element
 
 
+# def H_pm_elements(Nx, Ny, kx, ky, i, l):
+#     bloch_states = _bloch_states(Nx, Ny, kx, ky)
+#     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+#     state = ind_to_dec[i].decs
+#     j_element = {}
+#     vec = SiteVector((0, 0), Nx, Ny)
+#     neighbors = vec.nearest_neighboring_sites
+#     bonds = ((vec, i) for i in neighbors)
+#     bit1, bit2 = [], []
+#     for bond in bonds:
+#         bit1.append(bond[0].lattice_index)
+#         bit2.append(bond[1].lattice_index)
+#     bit1 = 2 ** np.array(bit1)
+#     bit2 = 2 ** np.array(bit2)
+
+#     new_states = []
+#     for iy, row in enumerate(state):
+#         # for s in state.flatten():
+#         for ix, s in enumerate(row):
+#             for b1, b2 in zip(bit1, bit2):
+#                 updown, downup = _exchange_spin_flips(s, b1, b2)
+#                 if updown or downup:
+#                     if updown:
+#                         new_state = s - b1 + b2
+#                     elif downup:
+#                         new_state = s + b1 - b2
+#                     new_states.append((new_state, (ix, iy)))
+
+#     for new_state in new_states:
+#         s, (ix, iy) = new_state
+#         try:
+#             lead, phase = _find_leading_state(Nx, Ny, kx, ky, s)
+#             full_state = bloch_states.bloch_state[lead]
+#             ylen, xlen = full_state.shape
+#             j = dec_to_ind[lead]
+#             xphase = np.exp(-2j * np.pi * kx * ix / xlen)
+#             yphase = np.exp(-2j * np.pi * ky * iy / ylen)
+#             phase *= xphase * yphase
+#             coeff = phase * _coeffv2(Nx, Ny, kx, ky, i, j)
+#             try:
+#                 j_element[j] += coeff
+#             except KeyError:
+#                 j_element[j] = coeff
+#         except exceptions.NotFoundError:
+#             pass
+#     return j_element
+
+
 def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    state = ind_to_dec[i].dec
+    state = ind_to_dec[i]
     j_element = {}
     bits = _bits(Nx, Ny, l)
     for b1, b2 in zip(*bits):
-        upup, downdown = _repeated_spins(state, b1, b2)
+        upup, downdown = _repeated_spins(state.lead, b1, b2)
         if upup or downdown:
             if upup:
-                new_state = state - b1 - b2
+                new_state = state.lead - b1 - b2
                 γ = _gamma(Nx, Ny, b1, b2).conjugate()
             elif downdown:
-                new_state = state + b1 + b2
+                new_state = state.lead + b1 + b2
                 γ = _gamma(Nx, Ny, b1, b2)
 
             try:
-                connected_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
-                j = dec_to_ind[connected_state.dec]
+                lead, phase = _find_leading_state(Nx, Ny, kx, ky, new_state)
+                j = dec_to_ind[lead]
                 coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
                 try:
                     j_element[j] += coeff * γ
                 except KeyError:
                     j_element[j] = coeff * γ
-            except TypeError:
+            except exceptions.NotFoundError:
                 pass
     return j_element
 
 
 def H_pmz_elements(Nx, Ny, kx, ky, i, l):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    state = ind_to_dec[i].dec
+    state = ind_to_dec[i]
     j_element = {}
     bits = _bits(Nx, Ny, l)
     for b1, b2 in zip(*bits):
         for _ in range(2):
-            if state | b1 == state:
+            if state.lead | b1 == state.lead:
                 z_contrib = 0.5
             else:
                 z_contrib = -0.5
 
-            if state | b2 == state:
-                new_state = state - b2
+            if state.lead | b2 == state.lead:
+                new_state = state.lead - b2
                 γ = _gamma(Nx, Ny, b1, b2).conjugate()
             else:
                 new_state = state + b2
                 γ = -_gamma(Nx, Ny, b1, b2)
 
             try:
-                connected_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
-                j = dec_to_ind[connected_state.dec]
+                lead, phase = _find_leading_state(Nx, Ny, kx, ky, new_state)
+                j = dec_to_ind[lead]
                 coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
                 try:
                     j_element[j] += z_contrib * γ * coeff
                 except KeyError:
                     j_element[j] = z_contrib * γ * coeff
-            except TypeError:
+            except exceptions.NotFoundError:
                 pass
 
             b1, b2 = b2, b1
@@ -731,7 +739,7 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
 
 @functools.lru_cache(maxsize=None)
 def H_z_matrix(Nx, Ny, kx, ky, l):
-    n = len(bloch_states(Nx, Ny, kx, ky))
+    n = len(_bloch_states(Nx, Ny, kx, ky))
     data = np.empty(n)
     for i in range(n):
         data[i] = H_z_elements(Nx, Ny, kx, ky, i, l)
@@ -740,7 +748,7 @@ def H_z_matrix(Nx, Ny, kx, ky, l):
 
 
 def _offdiag_components(Nx, Ny, kx, ky, l, func):
-    n = len(bloch_states(Nx, Ny, kx, ky))
+    n = len(_bloch_states(Nx, Ny, kx, ky))
     row, col, data = [], [], []
     for i in range(n):
         j_elements = func(Nx, Ny, kx, ky, i, l)
