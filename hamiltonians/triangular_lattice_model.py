@@ -6,10 +6,10 @@ from scipy import sparse
 from spinsys import constructors, half, dmrg, exceptions
 
 
-Shape = namedtuple('Shape', 'x, y')
+Pair = namedtuple('Pair', 'x, y')
 Momentum = namedtuple('Momentum', 'kx, ky')
-# dec is the decimanl representation of one constituent product state of a Bloch function
-BlochFunc = namedtuple('BlochFunc', 'dec, shape')
+BlochFunc = namedtuple('BlochFunc', 'lead, decs, dims')
+BlochFunc.__hash__ = lambda inst: hash((inst.lead, inst.dims))
 
 
 class SiteVector(constructors.PeriodicBCSiteVector):
@@ -312,33 +312,75 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
 
 
 class BlochTable:
+    """A complex custom datatype.
+
+    Let's say "states" is a BlochTable, then it has the following
+    fields/attributes:
+
+    states.leading_states: list
+
+        list of leading states in decimal representation
+
+    states.bloch_state: dict
+
+        a dictionary that maps any product state in the Hilbert space
+        to the full Bloch state it is a part of
+
+    BlochTable is also iterable and could be indexed.
+
+    states[i]: BlochFunc
+        BlochFunc is another datatype defined above and has the following
+        fields/attributes:
+
+        states[i].lead: int
+
+            the leading product state of a Bloch state
+
+        states[i].decs: numpy.array
+
+            the full Bloch state in a 2-D array. Traversal along the array
+            rows amounts to translation in the x-direction on the lattice and
+            traversal along the array columns amouns to translation in the
+            y-direction on the lattice. The 0th element is the leading state.
+
+        states[i].dims: Pair
+
+            the "dimensions", for lack of a better word, of a Bloch state.
+
+            states[i].dims.x: int
+                smallest integer n such that T^n = 1 on a any product
+                state that is part of this Bloch state along the x-direction
+
+            states[i].dims.y: int
+                smallest integer n such that T^n = 1 on a any product
+                state that is part of this Bloch state along the y-direction
+    """
 
     def __init__(self, states, shapes):
-        self.data = [states, shapes]
-        self.dataT = list(zip(*self.data))
+        leading_states = [s[0, 0] for s in states]
+        self.data = list(zip(leading_states, states, shapes))
+        self.bloch_state = {}
+        self._populate_dict()
 
     def __getitem__(self, i):
-        return BlochFunc(*self.dataT[i])
+        return BlochFunc(*self.data[i])
 
     def __len__(self):
-        return len(self.data[0])
+        return len(self.data)
+
+    def _populate_dict(self):
+        for state in self.data:
+            state_pkg = BlochFunc(*state)
+            for dec in state[1].flatten():
+                self.bloch_state[dec] = state_pkg
 
     def sort(self):
-        table = zip(*self.data)
-        table = sorted(table, key=lambda x: x[0])
-        self.data = list(zip(*table))
-        self.dataT = list(zip(*self.data))
+        table = sorted(self.data, key=lambda x: x[0])
+        self.data = table
 
     @property
-    def dec(self):
-        return self.data[0]
-
-
-def slice_state(state, Nx, Ny):
-    # slice a given state into different "numbers" with each corresponding to
-    #  one leg in the x-direction.
-    n = np.arange(0, Nx * Ny, Nx)
-    return state % (2 ** (n + Nx)) // (2 ** n)
+    def leading_states(self):
+        return tuple(zip(*self.data))[0]
 
 
 @functools.lru_cache(maxsize=None)
@@ -352,11 +394,27 @@ def _roll_x_aux(Nx, Ny):
     return a, b, c, d, e
 
 
-def roll_x(state, Nx, Ny):
-    """roll to the right"""
-    # slice state into Ny equal slices
+@functools.lru_cache(maxsize=None)
+def roll_x(dec, Nx, Ny):
+    """translates a given state along the x-direction for one site.
+    assumes periodic boundary condition.
+
+    Parameters
+    --------------------
+    dec: int
+        the decimal representation of a product state.
+    Nx: int
+        lattice size along the x-direction
+    Ny: int
+        lattice size along the y-direction
+
+    Returns
+    --------------------
+    state': int
+        the new state after translation
+    """
     a, b, c, d, e = _roll_x_aux(Nx, Ny)
-    s = state % a // b
+    s = dec % a // b    # "%" is modulus and "//" is integer division
     s = (s * 2) % c + s // d
     return (e).dot(s)
 
@@ -366,55 +424,152 @@ def _roll_y_aux(Nx, Ny):
     return 2 ** Nx, 2 ** (Nx * (Ny - 1))
 
 
-def roll_y(state, Nx, Ny):
-    """roll up"""
+# cannot be memoized because state is a numpy array which is not hashable
+def roll_y(arr, Nx, Ny):
+    """translates a given state along the y-direction for one site.
+    assumes periodic boundary condition.
+
+    Parameters
+    --------------------
+    arr: numpy.array / int
+        the decimal representation of a product state.
+    Nx: int
+        lattice size along the x-direction
+    Ny: int
+        lattice size along the y-direction
+
+    Returns
+    --------------------
+    arr': int
+        the new state after translation
+    """
     xdim, pred_totdim = _roll_y_aux(Nx, Ny)
-    tail = state % xdim
-    return state // xdim + tail * pred_totdim
+    tail = arr % xdim
+    return arr // xdim + tail * pred_totdim
 
 
-def _exchange_spin_flips(state, b1, b2):
+@functools.lru_cache(maxsize=None)
+def _exchange_spin_flips(dec, b1, b2):
+    """tests whether a given state constains a spin flip at sites
+    represented by b1 and b2.
+
+    Parameters
+    --------------------
+    dec: int
+        the decimal representation of a product state.
+    b1: int
+        the decimal representation of bit 1 to be examined
+    b2: int
+        the decimal representation of bit 2 to be examined
+
+    Returns
+    --------------------
+    updown: bool
+    downup: bool
+    """
     updown = downup = False
-    if (state | b1 == state) and (not state | b2 == state):
+    if (dec | b1 == dec) and (not dec | b2 == dec):
         updown = True
-    if (not state | b1 == state) and (state | b2 == state):
+    if (not dec | b1 == dec) and (dec | b2 == dec):
         downup = True
     return updown, downup
 
 
-def _repeated_spins(state, b1, b2):
+@functools.lru_cache(maxsize=None)
+def _repeated_spins(dec, b1, b2):
+    """tests whether both spins at b1 and b2 point in the same direction.
+
+    Parameters
+    --------------------
+    dec: int
+        the decimal representation of a product state.
+    b1: int
+        the decimal representation of bit 1 to be examined
+    b2: int
+        the decimal representation of bit 2 to be examined
+
+    Returns
+    --------------------
+    upup: bool
+    downdown: bool
+    """
     upup = downdown = False
-    if (state | b1 == state) and (state | b2 == state):
+    if (dec | b1 == dec) and (dec | b2 == dec):
         upup = True
-    if (not state | b1 == state) and (not state | b2 == state):
+    if (not dec | b1 == dec) and (not dec | b2 == dec):
         downdown = True
     return upup, downdown
 
 
-def _find_state(Nx, Ny, kx, ky, state):
-    def _rollx(j):
-        for ix in range(Nx):
-            if j in dec_to_ind.keys():
-                return j, ix
-            else:
-                j = roll_x(j, Nx, Ny)
+@functools.lru_cache(maxsize=None)
+def _unnomalized_phases(N, k, length):
+    """generates the un-normalized coefficients of individual product
+    states within a Bloch state.
 
-    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    j = state
-    for iy in range(Ny):
-        try:
-            j, ix = _rollx(j)
-            full_state = ind_to_dec[dec_to_ind[j]]
-            φx = np.exp(1j * 2 * np.pi * kx * ix / full_state.shape.x)
-            φy = np.exp(1j * 2 * np.pi * ky * iy / full_state.shape.y)
-            phase = φx * φy
-            return full_state, phase
-        except TypeError:
-            j = roll_y(j, Nx, Ny)
+    Parameters
+    --------------------
+    N: int
+        lattice length in one unspecified direction
+    k: int
+        lattice momentum * N / 2π in a (-π, +π] Brillouin zone
+    length: int
+        smallest integer n such that T^n = 1 on a specific product state
+        along the aforementioned unspecified direction
+
+    Returns
+    --------------------
+    coeffs: numpy.array
+        coefficients of individual product states within a Bloch state.
+    """
+    mprime_max = N // length
+    m = np.arange(length).repeat(mprime_max).reshape(-1, mprime_max).T
+    mprime = np.arange(mprime_max).repeat(length).reshape(mprime_max, -1)
+    phases = np.exp(2j * np.pi * k * (mprime * length + m) / N)
+    coeffs = np.sum(phases, axis=0)
+    return coeffs
+
+
+@functools.lru_cache(maxsize=None)
+def _phase_arr(Nx, Ny, kx, ky, dims):
+    coeffs_x = _unnomalized_phases(Nx, kx, dims.x)
+    coeffs_y = _unnomalized_phases(Ny, ky, dims.y)
+    # outer product of the coefficients along the x and y directions
+    return np.outer(coeffs_y, coeffs_x)
+
+
+@functools.lru_cache(maxsize=None)
+def _norm_coeff(Nx, Ny, kx, ky, dims):
+    """generates the norm of a given configuration, akin to the reciprocal
+    of the normalization factor.
+
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    dims: Pair
+        The x field contains the smallest integer nx such that T^nx = 1
+        on a specific product state along the x-direction. Same goes the
+        y field.
+
+    Returns
+    --------------------
+    coeff: float
+        the normalization factor
+    """
+    return np.linalg.norm(_phase_arr(Nx, Ny, kx, ky, dims))
 
 
 @functools.lru_cache(maxsize=None)
 def _gamma(Nx, Ny, b1, b2):
+    """calculates γ"""
     m = int(round(np.log2(b1)))
     n = int(round(np.log2(b2)))
     vec1 = SiteVector.from_index(m, Nx, Ny)
@@ -425,6 +580,26 @@ def _gamma(Nx, Ny, b1, b2):
 
 @functools.lru_cache(maxsize=None)
 def _bits(Nx, Ny, l):
+    """generates the integers that represent interacting sites
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    l: int
+        range of interaction. 1 for nearest neighbor interation, 2 for
+        second neighbors, 3 for third neighbors
+
+    Returns
+    --------------------
+    bit1: numpy.array
+        array of integers that are decimal representations of single sites
+    bit2: numpy.array
+        array of integers that are decimal representations of sites that
+        when taken together (zip) with bit1 locates interacting sites
+    """
     bit1, bit2 = [], []
     bond_orders = _generate_bonds(Nx, Ny)
     bonds = bond_orders[l - 1]
@@ -438,11 +613,25 @@ def _bits(Nx, Ny, l):
 
 @functools.lru_cache(maxsize=None)
 def zero_momentum_states(Nx, Ny):
-    """only returns the representative configuration. All other constituent
-    product states within the same Bloch state could be found by repeatedly
-    applying the translation operator (the roll_something functions)
+    """finds a full set of bloch states with zero lattice momentum
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+
+    Returns
+    --------------------
+    states: dict
+        a dictionary that maps "dimensions" to Bloch states
     """
     def find_T_invariant_set(i):
+        """takes an integer "i" as the leading state and translates it
+        repeatedly along the x and y-directions until we find the entire
+        set
+        """
         b = [i]
         j = i
         while True:
@@ -464,17 +653,17 @@ def zero_momentum_states(Nx, Ny):
                 break
         bloch_func = np.array(bloch_func, dtype=np.int64)
         try:
-            shape = bloch_func.shape
-            s = Shape(x=shape[1], y=shape[0])
-            states[s].append(i)
+            dims = bloch_func.shape
+            s = Pair(x=dims[1], y=dims[0])
+            states[s].append(bloch_func)
         except KeyError:
-            states[s] = [i]
+            states[s] = [bloch_func]
 
     N = Nx * Ny
     sieve = np.ones(2 ** N, dtype=np.int8)
     sieve[0] = sieve[-1] = 0
     maxdec = 2 ** N - 1
-    states = {Shape(1, 1): [0, maxdec]}
+    states = {Pair(1, 1): [np.array([[0]]), np.array([[maxdec]])]}
     for i in range(maxdec + 1):
         if sieve[i]:
             find_T_invariant_set(i)
@@ -482,55 +671,104 @@ def zero_momentum_states(Nx, Ny):
 
 
 @functools.lru_cache(maxsize=None)
-def bloch_states(Nx, Ny, kx, ky):
-    def check_bounds(N, k):
-        return k > 0 or (k < 0 and ((not -k == N // 2) or (not N % 2 == 0)))
+def _bloch_states(Nx, Ny, kx, ky):
+    """picks out the Bloch states from the zero-momentum set that
+    are non-zero in the given momentum
 
-    zero_k_states = zero_momentum_states(Nx, Ny)
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+
+    Returns
+    --------------------
+    table: BlochTable
+    """
+    def check_bounds(N, k):
+        return k < 0 and (-k == N // 2 and N % 2 == 0)
+
+    # I'm restricting myself to within the first Brillouin zone here
+    # and invalidates anything that falls outside of it
     if abs(kx) > Nx // 2 or abs(ky) > Ny // 2:
         raise exceptions.NotFoundError
-
-    states, shapes = [], []
-    if kx == 0 and ky == 0:
-        for s in zero_k_states.keys():
-            for state in zero_k_states[s]:
-                states.append(state)
-                shapes.append(s)
-    elif kx == 0:
-        if check_bounds(Ny, ky):
-            for s in zero_k_states.keys():
-                if ky * s.y % Ny == 0:
-                    for state in zero_k_states[s]:
-                        states.append(state)
-                        shapes.append(s)
-        else:
-            raise exceptions.NotFoundError
-    elif ky == 0:
-        if check_bounds(Nx, kx):
-            for s in zero_k_states.keys():
-                if kx * s.x % Nx == 0:
-                    for state in zero_k_states[s]:
-                        states.append(state)
-                        shapes.append(s)
-        else:
-            raise exceptions.NotFoundError
-    elif check_bounds(Nx, kx) and check_bounds(Ny, ky):
-        for s in zero_k_states.keys():
-            if (kx * s.x % Nx == 0) and (ky * s.y % Ny == 0):
-                for state in zero_k_states[s]:
-                    states.append(state)
-                    shapes.append(s)
-    else:
+    elif check_bounds(Nx, kx) or check_bounds(Ny, ky):
         raise exceptions.NotFoundError
+
+    zero_k_states = zero_momentum_states(Nx, Ny)
+    states, shapes = [], []
+    for dims, state_list in zero_k_states.items():
+        # this computes the norm of such states under some arbitrary
+        # momentum configuration and see if it is non-zero
+        norm_coeff = _norm_coeff(Nx, Ny, kx, ky, dims)
+        if norm_coeff > 1e-8:
+            nstates = len(state_list)
+            # store the state and associated metadata if its norm
+            # is non-zero
+            states.extend(state_list)
+            shapes.extend([dims] * nstates)
+
+    if not states:
+        raise exceptions.NotFoundError
+
     table = BlochTable(states, shapes)
     table.sort()
     return table
 
 
 @functools.lru_cache(maxsize=None)
+def _find_leading_state(Nx, Ny, kx, ky, dec):
+    """finds the leading state for a given state
+
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    dec: int
+        the decimal representation of a product state.
+
+    Returns
+    --------------------
+    lead: int
+        the decimal representation of the leading state
+    phase: float
+        the phase associated with the given state
+    """
+    bloch_states = _bloch_states(Nx, Ny, kx, ky)
+
+    try:
+        cntd_state = bloch_states.bloch_state[dec]
+    except KeyError:
+        raise exceptions.NotFoundError
+
+    # trace how far the given state is from the leading state by translation
+    iy, ix = np.where(cntd_state.decs == dec)
+    ix, iy = ix[0], iy[0]  # ix and iy are single element arrays. we want floats
+    xphase = np.exp(2j * np.pi * kx * ix / Nx)
+    yphase = np.exp(2j * np.pi * ky * iy / Ny)
+    phase = xphase * yphase
+    return cntd_state, phase
+
+
+@functools.lru_cache(maxsize=None)
 def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
-    states = bloch_states(Nx, Ny, kx, ky)
-    dec = states.dec
+    states = _bloch_states(Nx, Ny, kx, ky)
+    dec = states.leading_states
     nstates = len(dec)
     inds = list(range(nstates))
     dec_to_ind = dict(zip(dec, inds))
@@ -538,190 +776,285 @@ def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
     return ind_to_dec, dec_to_ind
 
 
-def all_bloch_states(Nx, Ny):
-    states = {}
-    max_kx = Nx // 2
-    max_ky = Ny // 2
-    for kx in range(-max_kx, max_kx + 1):
-        for ky in range(-max_ky, max_ky + 1):
-            try:
-                states[Momentum(kx, ky)] = bloch_states(Nx, Ny, kx, ky)
-            except exceptions.NotFoundError:
-                continue
-    return states
+@functools.lru_cache(maxsize=None)
+def _coeff(Nx, Ny, kx, ky, i, j):
+    """calculates the coefficient that connects matrix indices i and j
+    (sans phase)
+
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    i: int
+        index of the Bloch state before the Hamiltonian acts on it
+    j: int
+        index of the Bloch state the Hamiltonian connects state i with
+
+    Returns
+    --------------------
+    coeff: float
+    """
+    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
+    orig_state = ind_to_dec[i]
+    cntd_state = ind_to_dec[j]
+    # normalization factors
+    normfac_i = _norm_coeff(Nx, Ny, kx, ky, orig_state.dims)
+    normfac_j = _norm_coeff(Nx, Ny, kx, ky, cntd_state.dims)
+    coeff = normfac_j / normfac_i
+    return coeff
 
 
 def H_z_elements(Nx, Ny, kx, ky, i, l):
+    """computes the Hz elements
+
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    i: int
+        index of the Bloch state before the Hamiltonian acts on it
+    l: int
+        range of interaction. 1 for nearest neighbor interation, 2 for
+        second neighbors, 3 for third neighbors
+
+    Returns
+    --------------------
+    H_ii: float
+        the i'th element of Hz
+    """
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    state = ind_to_dec[i].dec
+    state = ind_to_dec[i]
     bit1, bit2 = _bits(Nx, Ny, l)
     same_dir = 0
+    # b1 is the decimal representation of a spin-up at site 1 and
+    # b2 is the decimal representation of a spin-up at site 2
     for b1, b2 in zip(bit1, bit2):
-        upup, downdown = _repeated_spins(state, b1, b2)
+        upup, downdown = _repeated_spins(state.lead, b1, b2)
         same_dir += upup + downdown
     diff_dir = len(bit1) - same_dir
     return 0.25 * (same_dir - diff_dir)
 
 
 @functools.lru_cache(maxsize=None)
-def _coeff(Nx, Ny, kx, ky, i, j):
-    ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    orig_state = ind_to_dec[i]
-    cntd_state = ind_to_dec[j]
-    orig_state_len = orig_state.shape.x * orig_state.shape.y
-    cntd_state_len = cntd_state.shape.x * cntd_state.shape.y
-    coeff = np.sqrt(orig_state_len / cntd_state_len)
-    if not (kx == 0 and ky == 0):
-        if cntd_state.shape.x < Nx:
-            if ky == 0:
-                # coeff *= Nx / cntd_state.shape.x
-                coeff **= 2
-            else:
+def _zero_coeff(state, Nx, Ny, kx, ky):
+    coeff = 1
+    phase_arr = _phase_arr(Nx, Ny, kx, ky, state.dims)
+    row1 = roll_y(state.decs[-1, :], Nx, Ny)
+    row2 = state.decs[0, :]
+    col1 = np.array([roll_x(i, Nx, Ny) for i in state.decs[:, -1]])
+    col2 = state.decs[:, 0]
+    if ky != 0 and state.dims.x < Nx:
+        if not np.array_equal(col1, col2):
+            offset = np.where(col2 == col1[0])[0][0]
+            if abs(phase_arr[0, 0] - phase_arr[offset, 0]) > 1e-8:
                 coeff = 0
-        if orig_state.shape.x < Nx:
-            if ky == 0:
-                # coeff *= Nx / orig_state.shape.x
-                coeff **= 2
-            else:
-                coeff = 0
-        if cntd_state.shape.y < Ny:
-            if kx == 0:
-                # coeff *= Ny / cntd_state.shape.y
-                coeff **= 2
-            else:
-                coeff = 0
-        if orig_state.shape.y < Ny:
-            if kx == 0:
-                # coeff *= Ny / orig_state.shape.y
-                coeff **= 2
-            else:
+    if kx != 0 and state.dims.y < Ny:
+        if not np.array_equal(row1, row2):
+            offset = np.where(row2 == row1[0])[0][0]
+            if abs(phase_arr[0, 0] - phase_arr[0, offset]) > 1e-8:
                 coeff = 0
     return coeff
 
 
-def _format(N, state):
-    return format(state, '0{}b'.format(N))
-
-
 def H_pm_elements(Nx, Ny, kx, ky, i, l):
+    """computes the H+- elements
+
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    i: int
+        index of the Bloch state before the Hamiltonian acts on it
+    l: int
+        range of interaction. 1 for nearest neighbor interation, 2 for
+        second neighbors, 3 for third neighbors
+
+    Returns
+    --------------------
+    j_element: dict
+        a dictionary that maps j's to their values for a given i
+    """
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     state = ind_to_dec[i]
     j_element = {}
     bits = _bits(Nx, Ny, l)
+    # b1 is the decimal representation of a spin-up at site 1 and
+    # b2 is the decimal representation of a spin-up at site 2
     for b1, b2 in zip(*bits):
-        updown, downup = _exchange_spin_flips(state.dec, b1, b2)
+        # updown and downup are booleans
+        updown, downup = _exchange_spin_flips(state.lead, b1, b2)
         if updown or downup:
-            if updown:
-                new_state = state.dec - b1 + b2
-            elif downup:
-                new_state = state.dec + b1 - b2
+            # if the configuration is updown, we flip the spins by
+            # turning the spin-up to spin-down and vice versa
+            if updown:  # if updown == True
+                new_state = state.lead - b1 + b2
+            elif downup:  # if downup == True
+                new_state = state.lead + b1 - b2
 
             try:
                 # find what connected state it is if the state we got from bit-
                 #  flipping is not in our records
-                cntd_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
-                # phase1 = phase
-                j = dec_to_ind[cntd_state.dec]
+                cntd_state, phase = _find_leading_state(Nx, Ny, kx, ky, new_state)
+                # once we have the leading state, we proceed to find the
+                # corresponding matrix index
+                j = dec_to_ind[cntd_state.lead]
+                # total coefficient is phase * sqrt(whatever)
                 coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
-
-                # N = Nx * Ny
-                # if (i, j) == (18, 6) or (i, j) == (6, 18):
-                #     print('orig state: {}\tnew state: {}\tconnected state: {}'
-                #           .format(_format(N, state), _format(N, new_state),
-                #                   _format(N, cntd_state.dec)))
-                #     print('connected state shape: {}'.format(cntd_state.shape))
-                #     print((i, j), cntd_state.shape.x, Nx, cntd_state.shape.y, Ny,
-                #           phase1, phase1 * _coeff(Nx, Ny, kx, ky, i, j), '\n')
-
-                # print(i, j, phase, coeff, cntd_state.shape.x, Nx, cntd_state.shape.y, Ny)
-                # N = Nx * Ny
-                # if i in [6, 35]:
-                #     print('{}   \torig state: {}\tnew state: {}\tconnected state: {}'
-                #           .format((i, j), _format(N, state), _format(N, new_state),
-                #                   _format(N, cntd_state), '\n'))
-                # if (i, j) == (35, 6):
-                #     print(coeff, phase)
-                #     print(_format(N, state), _format(N, new_state),
-                #           _format(N, cntd_state), _coeff(Nx, Ny, kx, ky, i, j), '\n')
-                # elif (i, j) == (6, 35):
-                #     print('\t\t\t\t', coeff)
-                #     N = Nx * Ny
-                #     print(_format(N, state), _format(N, new_state),
-                #           _format(N, cntd_state), _coeff(Nx, Ny, kx, ky, i, j), '\n')
+                coeff *= _zero_coeff(cntd_state, Nx, Ny, kx, ky)
                 try:
                     j_element[j] += coeff
                 except KeyError:
                     j_element[j] = coeff
-            except TypeError:  # connecting to a zero state
+            except exceptions.NotFoundError:  # connecting to a zero state
                 pass
     return j_element
 
 
 def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
+    """computes the H++-- elements
+
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    i: int
+        index of the Bloch state before the Hamiltonian acts on it
+    l: int
+        range of interaction. 1 for nearest neighbor interation, 2 for
+        second neighbors, 3 for third neighbors
+
+    Returns
+    --------------------
+    j_element: dict
+        a dictionary that maps j's to their values for a given i
+    """
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    state = ind_to_dec[i].dec
+    state = ind_to_dec[i]
     j_element = {}
     bits = _bits(Nx, Ny, l)
     for b1, b2 in zip(*bits):
-        upup, downdown = _repeated_spins(state, b1, b2)
+        upup, downdown = _repeated_spins(state.lead, b1, b2)
         if upup or downdown:
             if upup:
-                new_state = state - b1 - b2
+                new_state = state.lead - b1 - b2
                 γ = _gamma(Nx, Ny, b1, b2).conjugate()
             elif downdown:
-                new_state = state + b1 + b2
+                new_state = state.lead + b1 + b2
                 γ = _gamma(Nx, Ny, b1, b2)
 
             try:
-                connected_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
-                j = dec_to_ind[connected_state.dec]
+                cntd_state, phase = _find_leading_state(Nx, Ny, kx, ky, new_state)
+                j = dec_to_ind[cntd_state.lead]
                 coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
+                coeff *= _zero_coeff(cntd_state, Nx, Ny, kx, ky)
                 try:
                     j_element[j] += coeff * γ
                 except KeyError:
                     j_element[j] = coeff * γ
-            except TypeError:
+            except exceptions.NotFoundError:
                 pass
     return j_element
 
 
 def H_pmz_elements(Nx, Ny, kx, ky, i, l):
+    """computes the H+-z elements
+
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    i: int
+        index of the Bloch state before the Hamiltonian acts on it
+    l: int
+        range of interaction. 1 for nearest neighbor interation, 2 for
+        second neighbors, 3 for third neighbors
+
+    Returns
+    --------------------
+    j_element: dict
+        a dictionary that maps j's to their values for a given i
+    """
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
-    state = ind_to_dec[i].dec
+    state = ind_to_dec[i]
     j_element = {}
     bits = _bits(Nx, Ny, l)
     for b1, b2 in zip(*bits):
         for _ in range(2):
-            if state | b1 == state:
+            if state.lead | b1 == state.lead:
                 z_contrib = 0.5
             else:
                 z_contrib = -0.5
 
-            if state | b2 == state:
-                new_state = state - b2
+            if state.lead | b2 == state.lead:
+                new_state = state.lead - b2
                 γ = _gamma(Nx, Ny, b1, b2).conjugate()
             else:
-                new_state = state + b2
+                new_state = state.lead + b2
                 γ = -_gamma(Nx, Ny, b1, b2)
 
             try:
-                connected_state, phase = _find_state(Nx, Ny, kx, ky, new_state)
-                j = dec_to_ind[connected_state.dec]
+                cntd_state, phase = _find_leading_state(Nx, Ny, kx, ky, new_state)
+                j = dec_to_ind[cntd_state.lead]
                 coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
+                coeff *= _zero_coeff(cntd_state, Nx, Ny, kx, ky)
                 try:
                     j_element[j] += z_contrib * γ * coeff
                 except KeyError:
                     j_element[j] = z_contrib * γ * coeff
-            except TypeError:
+            except exceptions.NotFoundError:
                 pass
 
+            # switch sites 1 and 2 and repeat
             b1, b2 = b2, b1
     return j_element
 
 
 @functools.lru_cache(maxsize=None)
 def H_z_matrix(Nx, Ny, kx, ky, l):
-    n = len(bloch_states(Nx, Ny, kx, ky))
+    """constructs the Hz matrix by calling the H_z_elements function while
+    looping over all available i's
+    """
+    n = len(_bloch_states(Nx, Ny, kx, ky))
     data = np.empty(n)
     for i in range(n):
         data[i] = H_z_elements(Nx, Ny, kx, ky, i, l)
@@ -730,7 +1063,10 @@ def H_z_matrix(Nx, Ny, kx, ky, l):
 
 
 def _offdiag_components(Nx, Ny, kx, ky, l, func):
-    n = len(bloch_states(Nx, Ny, kx, ky))
+    """constructs the H+-, H++-- and H+-z matrices by calling their
+    corresponding functions while looping over all available i's
+    """
+    n = len(_bloch_states(Nx, Ny, kx, ky))
     row, col, data = [], [], []
     for i in range(n):
         j_elements = func(Nx, Ny, kx, ky, i, l)
@@ -741,8 +1077,6 @@ def _offdiag_components(Nx, Ny, kx, ky, l, func):
     return sparse.csc_matrix((data, (row, col)), shape=(n, n))
 
 
-# I'm partially applying the functions manually because the syntax of
-#  python does not lend itself well to the use of closures
 @functools.lru_cache(maxsize=None)
 def H_pm_matrix(Nx, Ny, kx, ky, l):
     return _offdiag_components(Nx, Ny, kx, ky, l, H_pm_elements)
@@ -768,6 +1102,37 @@ def _recurring_operators(Nx, Ny, kx, ky):
 
 
 def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
+    """construct the full Hamiltonian matrix in the given momentum configuration
+
+    Paramters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    J_pm: int/float
+        the J+- parameter (defaults to 0)
+    J_z: int/float
+        the Jz parameter (defaults to 0)
+    J_ppmm: int/float
+        the J++-- parameter (defaults to 0)
+    J_pmz: int/float
+        the J+-z parameter (defaults to 0)
+    J2: int/float
+        the J2 parameter (defaults to 0)
+    J3: int/float
+        the J3 parameter (defaults to 0)
+
+    Returns
+    --------------------
+    H: scipy.sparse.csc_matrix
+    """
     H_z1 = H_z_matrix(Nx, Ny, kx, ky, 1)
     H_pm1 = H_pm_matrix(Nx, Ny, kx, ky, 1)
     H_ppmm, H_pmz = _recurring_operators(Nx, Ny, kx, ky)
