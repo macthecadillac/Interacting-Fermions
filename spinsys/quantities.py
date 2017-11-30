@@ -51,7 +51,7 @@ def _gen_all_dR(Nx, Ny):
     """Generate ordered paris (Ri - Rj) for all i-j combinations"""
     N = Nx * Ny
     sites = []
-    pairs = itertools.combinations_with_replacement(range(N), 2)
+    pairs = itertools.product(range(N), repeat=2)
     for i, j in pairs:
         site1 = constructors.PeriodicBCSiteVector.from_index(i, Nx, Ny)
         site2 = constructors.PeriodicBCSiteVector.from_index(j, Nx, Ny)
@@ -139,7 +139,7 @@ def structural_factor(Nx, Ny, kx, ky, ψ):
     def _spin_correlation_vals(N):
         Sij = []
         z_mats = _create_z_mats(N)
-        pairs = itertools.combinations_with_replacement(range(N), 2)
+        pairs = itertools.product(range(N), repeat=2)
         for i, j in pairs:
             Sij.append(z_mats[i].dot(z_mats[j]))
         return np.array([ψ.T.conj().dot(S).dot(ψ)[0, 0] for S in Sij])

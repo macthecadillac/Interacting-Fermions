@@ -271,7 +271,7 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
         super().__init__()
 
     def initialize_storage(self):
-        init_block = sparse.csc_matrix(([], ([], [])), shape=[2, 2])
+        init_block = sparse.csc_matrix(([], ([], [])), dims=[2, 2])
         init_ops = self.generators
         self.storage = dmrg.Storage(init_block, init_block, init_ops)
 
