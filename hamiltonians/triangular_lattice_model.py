@@ -502,7 +502,7 @@ def _repeated_spins(dec, b1, b2):
 
 
 @functools.lru_cache(maxsize=None)
-def _unnomalized_phases(N, k, length):
+def _unnormalized_phases(N, k, length):
     """generates the un-normalized coefficients of individual product
     states within a Bloch state.
 
@@ -525,20 +525,63 @@ def _unnomalized_phases(N, k, length):
     m = np.arange(length).repeat(mprime_max).reshape(-1, mprime_max).T
     mprime = np.arange(mprime_max).repeat(length).reshape(mprime_max, -1)
     phases = np.exp(2j * np.pi * k * (mprime * length + m) / N)
-    coeffs = np.sum(phases, axis=0)
-    return coeffs
+    # coeffs = np.sum(phases, axis=0)
+    # return coeffs
+    return phases
 
 
 @functools.lru_cache(maxsize=None)
-def _phase_arr(Nx, Ny, kx, ky, dims):
-    coeffs_x = _unnomalized_phases(Nx, kx, dims.x)
-    coeffs_y = _unnomalized_phases(Ny, ky, dims.y)
+def _additional_phases(bfunc, Nx, Ny, kx, ky):
+    m = np.arange(bfunc.dims.x)
+    n = np.arange(bfunc.dims.y)
+    coeffs_x = np.exp(2j * np.pi * kx * m / bfunc.dims.x)
+    coeffs_y = np.exp(2j * np.pi * ky * n / bfunc.dims.y)
+    phase_arr = np.outer(coeffs_y, coeffs_x)
+    row1 = roll_y(bfunc.decs[-1, :], Nx, Ny)
+    row2 = bfunc.decs[0, :]
+    col1 = np.array([roll_x(i, Nx, Ny) for i in bfunc.decs[:, -1]])
+    col2 = bfunc.decs[:, 0]
+    xphases = yphases = 1
+    if not np.array_equal(col1, col2):
+        offset = np.where(col2 == col1[0])[0][0]
+        xphase = phase_arr[offset, 0]
+        xphases = np.cumprod(xphase * np.ones(Nx // bfunc.dims.x)) / xphase
+        xphases = xphases.reshape(-1, 1)
+    if not np.array_equal(row1, row2):
+        offset = np.where(row2 == row1[0])[0][0]
+        yphase = phase_arr[0, offset]
+        yphases = np.cumprod(yphase * np.ones(Ny // bfunc.dims.y)) / yphase
+        yphases = yphases.reshape(-1, 1)
+    # xphases = yphases = 1
+    return xphases, yphases
+
+
+@functools.lru_cache(maxsize=None)
+def _phase_arr(bfunc, Nx, Ny, kx, ky):
+    coeffs_x = _unnormalized_phases(Nx, kx, bfunc.dims.x)
+    coeffs_y = _unnormalized_phases(Ny, ky, bfunc.dims.y)
+    xphases, yphases = _additional_phases(bfunc, Nx, Ny, kx, ky)
+    # print('Nx={}, Ny={}, kx={}, ky={}'.format(Nx, Ny, kx, ky))
+    # print(bfunc)
+    # print('--------------------coeffs_x--------------------')
+    # print(coeffs_x)
+    # print('--------------------xphases--------------------')
+    # print(xphases)
+    # print('--------------------coeffs_y--------------------')
+    # print(coeffs_y)
+    # print('--------------------yphases--------------------')
+    # print(yphases)
+    coeffs_x = np.sum(xphases * coeffs_x, axis=0)
+    coeffs_y = np.sum(yphases * coeffs_y, axis=0)
+    # print('--------------------final phase arr--------------------')
+    # print(np.outer(coeffs_y, coeffs_x))
+    # print('\n\n')
     # outer product of the coefficients along the x and y directions
     return np.outer(coeffs_y, coeffs_x)
 
 
 @functools.lru_cache(maxsize=None)
-def _norm_coeff(Nx, Ny, kx, ky, dims):
+def _norm_coeff(bfunc, Nx, Ny, kx, ky):
     """generates the norm of a given configuration, akin to the reciprocal
     of the normalization factor.
 
@@ -564,7 +607,7 @@ def _norm_coeff(Nx, Ny, kx, ky, dims):
     coeff: float
         the normalization factor
     """
-    return np.linalg.norm(_phase_arr(Nx, Ny, kx, ky, dims))
+    return np.linalg.norm(_phase_arr(bfunc, Nx, Ny, kx, ky))
 
 
 @functools.lru_cache(maxsize=None)
@@ -707,13 +750,19 @@ def _bloch_states(Nx, Ny, kx, ky):
     for dims, state_list in zero_k_states.items():
         # this computes the norm of such states under some arbitrary
         # momentum configuration and see if it is non-zero
-        norm_coeff = _norm_coeff(Nx, Ny, kx, ky, dims)
-        if norm_coeff > 1e-8:
-            nstates = len(state_list)
-            # store the state and associated metadata if its norm
-            # is non-zero
-            states.extend(state_list)
-            shapes.extend([dims] * nstates)
+        # norm_coeff = _norm_coeff(Nx, Ny, kx, ky, dims)
+        # if norm_coeff > 1e-8:
+        #     nstates = len(state_list)
+        #     # store the state and associated metadata if its norm
+        #     # is non-zero
+        #     states.extend(state_list)
+        #     shapes.extend([dims] * nstates)
+        for arr in state_list:
+            bfunc = BlochFunc(lead=arr[0, 0], decs=arr, dims=dims)
+            norm_coeff = _norm_coeff(bfunc, Nx, Ny, kx, ky)
+            if norm_coeff > 1e-8:
+                states.append(arr)
+                shapes.append(dims)
 
     if not states:
         raise exceptions.NotFoundError
@@ -759,9 +808,11 @@ def _find_leading_state(Nx, Ny, kx, ky, dec):
     # trace how far the given state is from the leading state by translation
     iy, ix = np.where(cntd_state.decs == dec)
     ix, iy = ix[0], iy[0]  # ix and iy are single element arrays. we want floats
-    xphase = np.exp(2j * np.pi * kx * ix / Nx)
-    yphase = np.exp(2j * np.pi * ky * iy / Ny)
-    phase = xphase * yphase
+    # xphase = np.exp(2j * np.pi * kx * ix / Nx)
+    # yphase = np.exp(2j * np.pi * ky * iy / Ny)
+    # phase = xphase * yphase
+    phase_arr = _phase_arr(cntd_state, Nx, Ny, kx, ky)
+    phase = phase_arr[iy, ix].conjugate() / np.abs(phase_arr[iy, ix])
     return cntd_state, phase
 
 
@@ -806,8 +857,8 @@ def _coeff(Nx, Ny, kx, ky, i, j):
     orig_state = ind_to_dec[i]
     cntd_state = ind_to_dec[j]
     # normalization factors
-    normfac_i = _norm_coeff(Nx, Ny, kx, ky, orig_state.dims)
-    normfac_j = _norm_coeff(Nx, Ny, kx, ky, cntd_state.dims)
+    normfac_i = _norm_coeff(orig_state, Nx, Ny, kx, ky)
+    normfac_j = _norm_coeff(cntd_state, Nx, Ny, kx, ky)
     coeff = normfac_j / normfac_i
     return coeff
 
@@ -852,19 +903,19 @@ def H_z_elements(Nx, Ny, kx, ky, i, l):
 
 
 @functools.lru_cache(maxsize=None)
-def _zero_coeff(state, Nx, Ny, kx, ky):
+def _zero_coeff(bfunc, Nx, Ny, kx, ky):
     coeff = 1
-    phase_arr = _phase_arr(Nx, Ny, kx, ky, state.dims)
-    row1 = roll_y(state.decs[-1, :], Nx, Ny)
-    row2 = state.decs[0, :]
-    col1 = np.array([roll_x(i, Nx, Ny) for i in state.decs[:, -1]])
-    col2 = state.decs[:, 0]
-    if ky != 0 and state.dims.x < Nx:
+    phase_arr = _phase_arr(bfunc, Nx, Ny, kx, ky)
+    row1 = roll_y(bfunc.decs[-1, :], Nx, Ny)
+    row2 = bfunc.decs[0, :]
+    col1 = np.array([roll_x(i, Nx, Ny) for i in bfunc.decs[:, -1]])
+    col2 = bfunc.decs[:, 0]
+    if ky != 0 and bfunc.dims.x < Nx:
         if not np.array_equal(col1, col2):
             offset = np.where(col2 == col1[0])[0][0]
             if abs(phase_arr[0, 0] - phase_arr[offset, 0]) > 1e-8:
                 coeff = 0
-    if kx != 0 and state.dims.y < Ny:
+    if kx != 0 and bfunc.dims.y < Ny:
         if not np.array_equal(row1, row2):
             offset = np.where(row2 == row1[0])[0][0]
             if abs(phase_arr[0, 0] - phase_arr[0, offset]) > 1e-8:
@@ -925,6 +976,8 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
                 # total coefficient is phase * sqrt(whatever)
                 coeff = phase * _coeff(Nx, Ny, kx, ky, i, j)
                 coeff *= _zero_coeff(cntd_state, Nx, Ny, kx, ky)
+                # if (i, j) == (25, 7) or (i, j) == (7, 25):
+                #     print((i, j), phase)
                 try:
                     j_element[j] += coeff
                 except KeyError:
