@@ -14,10 +14,11 @@ as it is required.
 3-29-2017
 """
 
+import functools
+import pickle
 import os
 import numpy as np
 import scipy.sparse as ss
-import functools
 import tempfile
 
 
@@ -47,7 +48,9 @@ def matcache(function):
                 data = np.load(cachefile + '.data.npy')
                 indices = np.load(cachefile + '.indices.npy')
                 indptr = np.load(cachefile + '.indptr.npy')
-                return ss.csc_matrix((data, indices, indptr))
+                with open(cachefile + '.shape', 'rb') as fh:
+                    shape = pickle.load(fh)
+                return ss.csc_matrix((data, indices, indptr), shape=shape)
             except FileNotFoundError:
                 result = function(*args, **kargs)
                 try:
@@ -61,6 +64,8 @@ def matcache(function):
                             allow_pickle=False)
                     np.save(cachefile + '.indptr.npy', result.indptr,
                             allow_pickle=False)
+                    with open(cachefile + '.shape', 'wb') as fh:
+                        pickle.dump(result.shape, fh)
                 return result
     return wrapper
 
