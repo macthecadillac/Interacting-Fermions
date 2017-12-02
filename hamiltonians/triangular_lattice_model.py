@@ -613,8 +613,8 @@ def zero_momentum_states(Nx, Ny):
         """
         decs = {}
         new_dec = dec
-        for n in np.arange(Ny, dtype=np.int8):
-            for m in np.arange(Nx, dtype=np.int8):
+        for n in range(Ny):
+            for m in range(Nx):
                 sieve[new_dec] = 0
                 try:
                     decs[new_dec].append((n, m))
@@ -720,7 +720,7 @@ def _find_leading_state(Nx, Ny, kx, ky, dec):
     # trace how far the given state is from the leading state by translation
     phase_arr = _phase_arr(Nx, Ny, kx, ky)
     rows, cols = tuple(zip(*cntd_state.decs[dec]))
-    phase = sum(phase_arr[rows, cols]).conjugate()
+    phase = np.sum(phase_arr[rows, cols]).conjugate()
     phase /= np.abs(phase)
     return cntd_state, phase
 
