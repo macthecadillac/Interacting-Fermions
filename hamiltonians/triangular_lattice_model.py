@@ -3,12 +3,7 @@ import copy
 import functools
 import numpy as np
 from scipy import sparse
-from spinsys import constructors, half, dmrg, exceptions
-
-
-Momentum = namedtuple('Momentum', 'kx, ky')
-BlochFunc = namedtuple('BlochFunc', 'lead, decs')
-BlochFunc.__hash__ = lambda inst: hash((inst.lead))
+from spinsys import constructors, half, dmrg, exceptions, utils
 
 
 class SiteVector(constructors.PeriodicBCSiteVector):
@@ -310,6 +305,10 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
             self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
 
 
+BlochFunc = namedtuple('BlochFunc', 'lead, decs')
+BlochFunc.__hash__ = lambda inst: hash((inst.lead))
+
+
 class BlochFuncSet:
     """A datatype that stores a set of bloch functions.
 
@@ -374,7 +373,7 @@ class BlochFuncSet:
 
 
 @functools.lru_cache(maxsize=None)
-def _roll_x_aux(Nx, Ny):
+def _translate_x_aux(Nx, Ny):
     n = np.arange(0, Nx * Ny, Nx)
     a = 2 ** (n + Nx)
     b = 2 ** n
@@ -384,8 +383,7 @@ def _roll_x_aux(Nx, Ny):
     return a, b, c, d, e
 
 
-@functools.lru_cache(maxsize=None)
-def roll_x(dec, Nx, Ny):
+def translate_x(dec, Nx, Ny):
     """translates a given state along the x-direction for one site.
     assumes periodic boundary condition.
 
@@ -403,19 +401,18 @@ def roll_x(dec, Nx, Ny):
     dec': int
         the new state after translation
     """
-    a, b, c, d, e = _roll_x_aux(Nx, Ny)
+    a, b, c, d, e = _translate_x_aux(Nx, Ny)
     s = dec % a // b    # "%" is modulus and "//" is integer division
     s = (s * 2) % c + s // d
     return (e).dot(s)
 
 
 @functools.lru_cache(maxsize=None)
-def _roll_y_aux(Nx, Ny):
+def _translate_y_aux(Nx, Ny):
     return 2 ** Nx, 2 ** (Nx * (Ny - 1))
 
 
-@functools.lru_cache(maxsize=None)
-def roll_y(dec, Nx, Ny):
+def translate_y(dec, Nx, Ny):
     """translates a given state along the y-direction for one site.
     assumes periodic boundary condition.
 
@@ -433,23 +430,22 @@ def roll_y(dec, Nx, Ny):
     dec': int
         the new state after translation
     """
-    xdim, pred_totdim = _roll_y_aux(Nx, Ny)
+    xdim, pred_totdim = _translate_y_aux(Nx, Ny)
     tail = dec % xdim
     return dec // xdim + tail * pred_totdim
 
 
-@functools.lru_cache(maxsize=None)
-def _exchange_spin_flips(dec, b1, b2):
+def _exchange_spin_flips(dec, s1, s2):
     """tests whether a given state constains a spin flip at sites
-    represented by b1 and b2.
+    represented by s1 and s2.
 
     Parameters
     --------------------
     dec: int
         the decimal representation of a product state.
-    b1: int
+    s1: int
         the decimal representation of bit 1 to be examined
-    b2: int
+    s2: int
         the decimal representation of bit 2 to be examined
 
     Returns
@@ -458,24 +454,23 @@ def _exchange_spin_flips(dec, b1, b2):
     downup: bool
     """
     updown = downup = False
-    if (dec | b1 == dec) and (not dec | b2 == dec):
+    if (dec | s1 == dec) and (not dec | s2 == dec):
         updown = True
-    if (not dec | b1 == dec) and (dec | b2 == dec):
+    if (not dec | s1 == dec) and (dec | s2 == dec):
         downup = True
     return updown, downup
 
 
-@functools.lru_cache(maxsize=None)
-def _repeated_spins(dec, b1, b2):
-    """tests whether both spins at b1 and b2 point in the same direction.
+def _repeated_spins(dec, s1, s2):
+    """tests whether both spins at s1 and s2 point in the same direction.
 
     Parameters
     --------------------
     dec: int
         the decimal representation of a product state.
-    b1: int
+    s1: int
         the decimal representation of bit 1 to be examined
-    b2: int
+    s2: int
         the decimal representation of bit 2 to be examined
 
     Returns
@@ -484,9 +479,9 @@ def _repeated_spins(dec, b1, b2):
     downdown: bool
     """
     upup = downdown = False
-    if (dec | b1 == dec) and (dec | b2 == dec):
+    if (dec | s1 == dec) and (dec | s2 == dec):
         upup = True
-    if (not dec | b1 == dec) and (not dec | b2 == dec):
+    if (not dec | s1 == dec) and (not dec | s2 == dec):
         downdown = True
     return upup, downdown
 
@@ -553,10 +548,10 @@ def _norm_coeff(bfunc, Nx, Ny, kx, ky):
 
 
 @functools.lru_cache(maxsize=None)
-def _gamma(Nx, Ny, b1, b2):
+def _gamma(Nx, Ny, s1, s2):
     """calculates γ"""
-    m = int(round(np.log2(b1)))
-    n = int(round(np.log2(b2)))
+    m = int(round(np.log2(s1)))
+    n = int(round(np.log2(s2)))
     vec1 = SiteVector.from_index(m, Nx, Ny)
     vec2 = SiteVector.from_index(n, Nx, Ny)
     ang = vec1.angle_with(vec2)
@@ -564,7 +559,7 @@ def _gamma(Nx, Ny, b1, b2):
 
 
 @functools.lru_cache(maxsize=None)
-def _bits(Nx, Ny, l):
+def _interacting_sites(Nx, Ny, l):
     """generates the integers that represent interacting sites
 
     Parameters
@@ -579,24 +574,24 @@ def _bits(Nx, Ny, l):
 
     Returns
     --------------------
-    bit1: numpy.array
+    site1: numpy.array
         array of integers that are decimal representations of single sites
-    bit2: numpy.array
+    site2: numpy.array
         array of integers that are decimal representations of sites that
         when taken together (zip) with bit1 locates interacting sites
     """
-    bit1, bit2 = [], []
+    site1, site2 = [], []
     bond_orders = _generate_bonds(Nx, Ny)
     bonds = bond_orders[l - 1]
     for bond in bonds:
-        bit1.append(bond[0].lattice_index)
-        bit2.append(bond[1].lattice_index)
-    bit1 = np.array(bit1)
-    bit2 = np.array(bit2)
-    return 2 ** bit1, 2 ** bit2
+        site1.append(bond[0].lattice_index)
+        site2.append(bond[1].lattice_index)
+    site1 = np.array(site1)
+    site2 = np.array(site2)
+    return 2 ** site1, 2 ** site2
 
 
-@functools.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=1)
 def zero_momentum_states(Nx, Ny):
     """finds a full set of bloch states with zero lattice momentum
 
@@ -618,15 +613,15 @@ def zero_momentum_states(Nx, Ny):
         """
         decs = {}
         new_dec = dec
-        for n in range(Ny):
-            for m in range(Nx):
+        for n in np.arange(Ny, dtype=np.int8):
+            for m in np.arange(Nx, dtype=np.int8):
                 sieve[new_dec] = 0
                 try:
                     decs[new_dec].append((n, m))
                 except KeyError:
                     decs[new_dec] = [(n, m)]
-                new_dec = roll_x(new_dec, Nx, Ny)
-            new_dec = roll_y(new_dec, Nx, Ny)
+                new_dec = translate_x(new_dec, Nx, Ny)
+            new_dec = translate_y(new_dec, Nx, Ny)
         return BlochFunc(lead=dec, decs=decs)
 
     N = Nx * Ny
@@ -640,7 +635,7 @@ def zero_momentum_states(Nx, Ny):
     return table
 
 
-@functools.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=1)
 def _bloch_states(Nx, Ny, kx, ky):
     """prunes the zero-momentum set and returns a reduced basis set that
     consists of only basis states that are non-zero in the given
@@ -730,7 +725,7 @@ def _find_leading_state(Nx, Ny, kx, ky, dec):
     return cntd_state, phase
 
 
-@functools.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=1)
 def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
     states = _bloch_states(Nx, Ny, kx, ky)
     dec = states.leading_states
@@ -741,7 +736,6 @@ def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
     return ind_to_dec, dec_to_ind
 
 
-@functools.lru_cache(maxsize=None)
 def _coeff(Nx, Ny, kx, ky, orig_state, cntd_state):
     """calculates the coefficient that the two given states (sans phase)
 
@@ -800,14 +794,14 @@ def H_z_elements(Nx, Ny, kx, ky, i, l):
     """
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     state = ind_to_dec[i]
-    bit1, bit2 = _bits(Nx, Ny, l)
+    site1, site2 = _interacting_sites(Nx, Ny, l)
     same_dir = 0
-    # b1 is the decimal representation of a spin-up at site 1 and
-    # b2 is the decimal representation of a spin-up at site 2
-    for b1, b2 in zip(bit1, bit2):
-        upup, downdown = _repeated_spins(state.lead, b1, b2)
+    # s1 is the decimal representation of a spin-up at site 1 and
+    # s2 is the decimal representation of a spin-up at site 2
+    for s1, s2 in zip(site1, site2):
+        upup, downdown = _repeated_spins(state.lead, s1, s2)
         same_dir += upup + downdown
-    diff_dir = len(bit1) - same_dir
+    diff_dir = len(site1) - same_dir
     return 0.25 * (same_dir - diff_dir)
 
 
@@ -840,19 +834,19 @@ def H_pm_elements(Nx, Ny, kx, ky, i, l):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     orig_state = ind_to_dec[i]
     j_element = {}
-    bits = _bits(Nx, Ny, l)
-    # b1 is the decimal representation of a spin-up at site 1 and
-    # b2 is the decimal representation of a spin-up at site 2
-    for b1, b2 in zip(*bits):
+    sites = _interacting_sites(Nx, Ny, l)
+    # s1 is the decimal representation of a spin-up at site 1 and
+    # s2 is the decimal representation of a spin-up at site 2
+    for s1, s2 in zip(*sites):
         # updown and downup are booleans
-        updown, downup = _exchange_spin_flips(orig_state.lead, b1, b2)
+        updown, downup = _exchange_spin_flips(orig_state.lead, s1, s2)
         if updown or downup:
             # if the configuration is updown, we flip the spins by
             # turning the spin-up to spin-down and vice versa
             if updown:  # if updown == True
-                new_dec = orig_state.lead - b1 + b2
+                new_dec = orig_state.lead - s1 + s2
             elif downup:  # if downup == True
-                new_dec = orig_state.lead + b1 - b2
+                new_dec = orig_state.lead + s1 - s2
 
             try:
                 # find what connected state it is if the state we got from bit-
@@ -901,16 +895,16 @@ def H_ppmm_elements(Nx, Ny, kx, ky, i, l):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     orig_state = ind_to_dec[i]
     j_element = {}
-    bits = _bits(Nx, Ny, l)
-    for b1, b2 in zip(*bits):
-        upup, downdown = _repeated_spins(orig_state.lead, b1, b2)
+    sites = _interacting_sites(Nx, Ny, l)
+    for s1, s2 in zip(*sites):
+        upup, downdown = _repeated_spins(orig_state.lead, s1, s2)
         if upup or downdown:
             if upup:
-                new_dec = orig_state.lead - b1 - b2
-                γ = _gamma(Nx, Ny, b1, b2).conjugate()
+                new_dec = orig_state.lead - s1 - s2
+                γ = _gamma(Nx, Ny, s1, s2).conjugate()
             elif downdown:
-                new_dec = orig_state.lead + b1 + b2
-                γ = _gamma(Nx, Ny, b1, b2)
+                new_dec = orig_state.lead + s1 + s2
+                γ = _gamma(Nx, Ny, s1, s2)
 
             try:
                 cntd_state, phase = _find_leading_state(Nx, Ny, kx, ky, new_dec)
@@ -954,20 +948,20 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
     ind_to_dec, dec_to_ind = _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky)
     orig_state = ind_to_dec[i]
     j_element = {}
-    bits = _bits(Nx, Ny, l)
-    for b1, b2 in zip(*bits):
+    sites = _interacting_sites(Nx, Ny, l)
+    for s1, s2 in zip(*sites):
         for _ in range(2):
-            if orig_state.lead | b1 == orig_state.lead:
+            if orig_state.lead | s1 == orig_state.lead:
                 z_contrib = 0.5
             else:
                 z_contrib = -0.5
 
-            if orig_state.lead | b2 == orig_state.lead:
-                new_dec = orig_state.lead - b2
-                γ = _gamma(Nx, Ny, b1, b2).conjugate()
+            if orig_state.lead | s2 == orig_state.lead:
+                new_dec = orig_state.lead - s2
+                γ = _gamma(Nx, Ny, s1, s2).conjugate()
             else:
-                new_dec = orig_state.lead + b2
-                γ = -_gamma(Nx, Ny, b1, b2)
+                new_dec = orig_state.lead + s2
+                γ = -_gamma(Nx, Ny, s1, s2)
 
             try:
                 cntd_state, phase = _find_leading_state(Nx, Ny, kx, ky, new_dec)
@@ -981,11 +975,11 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
                 pass
 
             # switch sites 1 and 2 and repeat
-            b1, b2 = b2, b1
+            s1, s2 = s2, s1
     return j_element
 
 
-@functools.lru_cache(maxsize=None)
+@utils.cache.matcache
 def H_z_matrix(Nx, Ny, kx, ky, l):
     """constructs the Hz matrix by calling the H_z_elements function while
     looping over all available i's
@@ -1013,28 +1007,21 @@ def _offdiag_components(Nx, Ny, kx, ky, l, func):
     return sparse.csc_matrix((data, (row, col)), shape=(n, n))
 
 
-@functools.lru_cache(maxsize=None)
+@utils.cache.matcache
 def H_pm_matrix(Nx, Ny, kx, ky, l):
     return _offdiag_components(Nx, Ny, kx, ky, l, H_pm_elements)
 
 
-@functools.lru_cache(maxsize=None)
+@utils.cache.matcache
 def H_ppmm_matrix(Nx, Ny, kx, ky):
     l = 1
     return _offdiag_components(Nx, Ny, kx, ky, l, H_ppmm_elements)
 
 
-@functools.lru_cache(maxsize=None)
+@utils.cache.matcache
 def H_pmz_matrix(Nx, Ny, kx, ky):
     l = 1
     return 1j * _offdiag_components(Nx, Ny, kx, ky, l, H_pmz_elements)
-
-
-@functools.lru_cache(maxsize=None)
-def _recurring_operators(Nx, Ny, kx, ky):
-    H_ppmm = H_ppmm_matrix(Nx, Ny, kx, ky)
-    H_pmz = H_pmz_matrix(Nx, Ny, kx, ky)
-    return H_ppmm, H_pmz
 
 
 def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
@@ -1071,7 +1058,8 @@ def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, 
     """
     H_z1 = H_z_matrix(Nx, Ny, kx, ky, 1)
     H_pm1 = H_pm_matrix(Nx, Ny, kx, ky, 1)
-    H_ppmm, H_pmz = _recurring_operators(Nx, Ny, kx, ky)
+    H_ppmm = H_ppmm_matrix(Nx, Ny, kx, ky)
+    H_pmz = H_pmz_matrix(Nx, Ny, kx, ky)
     nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + J_pmz * H_pmz
     second_neighbor_terms = third_neighbor_terms = 0
     if not J2 == 0:
@@ -1082,4 +1070,7 @@ def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, 
         H_z3 = H_z_matrix(Nx, Ny, kx, ky, 3)
         H_pm3 = H_pm_matrix(Nx, Ny, kx, ky, 3)
         third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
+    # clears cache so the computer doesn't run out of memory
+    _find_leading_state.cache_clear()
+    _norm_coeff.cache_clear()
     return nearest_neighbor_terms + second_neighbor_terms + third_neighbor_terms
