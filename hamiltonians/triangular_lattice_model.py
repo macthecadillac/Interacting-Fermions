@@ -1,9 +1,8 @@
-from collections import namedtuple
 import copy
 import functools
 import numpy as np
 from scipy import sparse
-from spinsys import constructors, half, dmrg, exceptions, utils
+from spinsys import constructors, half, dmrg, exceptions
 
 
 class SiteVector(constructors.PeriodicBCSiteVector):
@@ -305,8 +304,15 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
             self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
 
 
-BlochFunc = namedtuple('BlochFunc', 'lead, decs')
-BlochFunc.__hash__ = lambda inst: hash((inst.lead))
+class BlochFunc:
+
+    def __init__(self, lead, decs, norm=None):
+        self.lead = lead
+        self.decs = decs
+        self.norm = norm
+
+    def __hash__(self):
+        return hash((self.lead, self.norm))
 
 
 class BlochFuncSet:
@@ -314,10 +320,6 @@ class BlochFuncSet:
 
     Let's say "states" is a BlochFuncSet, then it has the following
     fields/attributes:
-
-    states.leading_states: list
-
-        list of leading states in decimal representation
 
     states.hashtable: dict
 
@@ -352,12 +354,13 @@ class BlochFuncSet:
         self.data = bfuncs
         self.hashtable = {}
         self._populate_dict()
+        self.nonzero = None
 
     def __getitem__(self, i):
         return self.data[i]
 
     def __len__(self):
-        return len(self.data)
+        return self.nonzero
 
     def _populate_dict(self):
         for bfunc in self.data:
@@ -366,10 +369,6 @@ class BlochFuncSet:
 
     def sort(self):
         self.data = sorted(self.data, key=lambda x: x.lead)
-
-    @property
-    def leading_states(self):
-        return tuple(zip(*self.data))[0]
 
 
 @functools.lru_cache(maxsize=None)
@@ -514,7 +513,6 @@ def _phase_arr(Nx, Ny, kx, ky):
     return np.outer(yphase, xphase)
 
 
-@functools.lru_cache(maxsize=None)
 def _norm_coeff(bfunc, Nx, Ny, kx, ky):
     """generates the norm of a given configuration, akin to the reciprocal
     of the normalization factor.
@@ -658,30 +656,15 @@ def _bloch_states(Nx, Ny, kx, ky):
     --------------------
     table: BlochFuncSet
     """
-    def check_bounds(N, k):
-        return k < 0 and (-k == N // 2 and N % 2 == 0)
-
-    # I'm restricting myself to within the first Brillouin zone here
-    # and invalidates anything that falls outside of it
-    if abs(kx) > Nx // 2 or abs(ky) > Ny // 2:
-        raise exceptions.NotFoundError
-    elif check_bounds(Nx, kx) or check_bounds(Ny, ky):
-        raise exceptions.NotFoundError
-
-    zero_k_states = zero_momentum_states(Nx, Ny)
-    bfuncs = []
-    for bfunc in zero_k_states:
-        # keep only non-zero basis states
-        norm_coeff = _norm_coeff(bfunc, Nx, Ny, kx, ky)
-        if norm_coeff > 1e-8:
-            bfuncs.append(bfunc)
-
-    if not bfuncs:
-        raise exceptions.NotFoundError
-
-    table = BlochFuncSet(bfuncs)
-    table.sort()
-    return table
+    bfuncs = zero_momentum_states(Nx, Ny)
+    nonzero = 0
+    for bfunc in bfuncs:
+        norm = _norm_coeff(bfunc, Nx, Ny, kx, ky)
+        bfunc.norm = norm
+        if norm > 1e-8:
+            nonzero += 1
+    bfuncs.nonzero = nonzero
+    return bfuncs
 
 
 @functools.lru_cache(maxsize=None)
@@ -711,10 +694,9 @@ def _find_leading_state(Nx, Ny, kx, ky, dec):
         the phase associated with the given state
     """
     bloch_states = _bloch_states(Nx, Ny, kx, ky)
+    cntd_state = bloch_states.hashtable[dec]
 
-    try:
-        cntd_state = bloch_states.hashtable[dec]
-    except KeyError:
+    if cntd_state.norm < 1e-8:
         raise exceptions.NotFoundError
 
     # trace how far the given state is from the leading state by translation
@@ -728,11 +710,12 @@ def _find_leading_state(Nx, Ny, kx, ky, dec):
 @functools.lru_cache(maxsize=1)
 def _gen_ind_dec_conv_dicts(Nx, Ny, kx, ky):
     states = _bloch_states(Nx, Ny, kx, ky)
-    dec = states.leading_states
+    nonzero_states = [s for s in states if s.norm > 1e-8]
+    dec = [bfunc.lead for bfunc in nonzero_states]
     nstates = len(dec)
     inds = list(range(nstates))
     dec_to_ind = dict(zip(dec, inds))
-    ind_to_dec = dict(zip(inds, states))
+    ind_to_dec = dict(zip(inds, nonzero_states))
     return ind_to_dec, dec_to_ind
 
 
@@ -760,9 +743,7 @@ def _coeff(Nx, Ny, kx, ky, orig_state, cntd_state):
     --------------------
     coeff: float
     """
-    normfac_i = _norm_coeff(orig_state, Nx, Ny, kx, ky)
-    normfac_j = _norm_coeff(cntd_state, Nx, Ny, kx, ky)
-    coeff = normfac_j / normfac_i
+    coeff = cntd_state.norm / orig_state.norm
     return coeff
 
 
@@ -979,7 +960,6 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
     return j_element
 
 
-@utils.cache.matcache
 def H_z_matrix(Nx, Ny, kx, ky, l):
     """constructs the Hz matrix by calling the H_z_elements function while
     looping over all available i's
@@ -1007,18 +987,15 @@ def _offdiag_components(Nx, Ny, kx, ky, l, func):
     return sparse.csc_matrix((data, (row, col)), shape=(n, n))
 
 
-@utils.cache.matcache
 def H_pm_matrix(Nx, Ny, kx, ky, l):
     return _offdiag_components(Nx, Ny, kx, ky, l, H_pm_elements)
 
 
-@utils.cache.matcache
 def H_ppmm_matrix(Nx, Ny, kx, ky):
     l = 1
     return _offdiag_components(Nx, Ny, kx, ky, l, H_ppmm_elements)
 
 
-@utils.cache.matcache
 def H_pmz_matrix(Nx, Ny, kx, ky):
     l = 1
     return 1j * _offdiag_components(Nx, Ny, kx, ky, l, H_pmz_elements)
@@ -1072,5 +1049,4 @@ def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, 
         third_neighbor_terms = J3 * (H_pm3 + J_z / J_pm * H_z3)
     # clears cache so the computer doesn't run out of memory
     _find_leading_state.cache_clear()
-    _norm_coeff.cache_clear()
     return nearest_neighbor_terms + second_neighbor_terms + third_neighbor_terms
