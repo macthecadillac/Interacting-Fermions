@@ -2,7 +2,7 @@ import copy
 import functools
 import numpy as np
 from scipy import sparse
-from spinsys import constructors, half, dmrg, exceptions
+from spinsys import constructors, half, dmrg, exceptions, utils
 
 
 class SiteVector(constructors.PeriodicBCSiteVector):
@@ -960,6 +960,7 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
     return j_element
 
 
+@utils.cache.matcache
 def H_z_matrix(Nx, Ny, kx, ky, l):
     """constructs the Hz matrix by calling the H_z_elements function while
     looping over all available i's
@@ -987,15 +988,18 @@ def _offdiag_components(Nx, Ny, kx, ky, l, func):
     return sparse.csc_matrix((data, (row, col)), shape=(n, n))
 
 
+@utils.cache.matcache
 def H_pm_matrix(Nx, Ny, kx, ky, l):
     return _offdiag_components(Nx, Ny, kx, ky, l, H_pm_elements)
 
 
+@utils.cache.matcache
 def H_ppmm_matrix(Nx, Ny, kx, ky):
     l = 1
     return _offdiag_components(Nx, Ny, kx, ky, l, H_ppmm_elements)
 
 
+@utils.cache.matcache
 def H_pmz_matrix(Nx, Ny, kx, ky):
     l = 1
     return 1j * _offdiag_components(Nx, Ny, kx, ky, l, H_pmz_elements)
