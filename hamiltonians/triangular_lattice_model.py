@@ -960,17 +960,21 @@ def H_pmz_elements(Nx, Ny, kx, ky, i, l):
     return j_element
 
 
-@utils.cache.matcache
-def H_z_matrix(Nx, Ny, kx, ky, l):
+def _diag_components(Nx, Ny, kx, ky, l, func):
     """constructs the Hz matrix by calling the H_z_elements function while
     looping over all available i's
     """
     n = len(_bloch_states(Nx, Ny, kx, ky))
     data = np.empty(n)
     for i in range(n):
-        data[i] = H_z_elements(Nx, Ny, kx, ky, i, l)
+        data[i] = func(Nx, Ny, kx, ky, i, l)
     inds = np.arange(n)
     return sparse.csc_matrix((data, (inds, inds)), shape=(n, n))
+
+
+@utils.cache.matcache
+def H_z_matrix(Nx, Ny, kx, ky, l):
+    return _diag_components(Nx, Ny, kx, ky, l, H_z_elements)
 
 
 def _offdiag_components(Nx, Ny, kx, ky, l, func):
