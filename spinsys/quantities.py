@@ -80,7 +80,7 @@ def von_neumann_entropy(ρ, base='e'):
     Parameters
     --------------------
     ρ: numpy.array
-        Reduved density matrix
+        Reduced density matrix
     base: string
         The base of the log function. It could be 'e', '2' or '10'
 

@@ -27,7 +27,7 @@ def generate_eigenpairs(N, H, num_psi, expand=True, enden=0.5):
     """
     try:
         E = np.sort(eigsh(H, k=2, which='BE', return_eigenvectors=False))
-        target_E = enden * sum(E)
+        target_E = enden * E[1] + (1 - enden) * E[0]
         eigs, eigvecs = eigsh(H, k=int(num_psi), which='LM', sigma=target_E)
     except ArpackNoConvergence:
         raise NoConvergence
