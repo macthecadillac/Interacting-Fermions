@@ -23,6 +23,7 @@ import tempfile
 
 
 Globals = {}
+tmpdir = tempfile.gettempdir()
 
 
 def matcache(function):
@@ -35,7 +36,6 @@ def matcache(function):
     """
     @functools.wraps(function)
     def wrapper(*args, **kargs):
-        tmpdir = tempfile.gettempdir()
         cachedir = os.path.join(tmpdir, 'spinsys')
         cachefile = os.path.join(tmpdir, 'spinsys', '{}{}'
                                  .format(function.__name__, (args, kargs)))
