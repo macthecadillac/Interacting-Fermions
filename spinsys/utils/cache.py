@@ -22,8 +22,14 @@ import scipy.sparse as ss
 import tempfile
 
 
+class TmpDir:
+
+    def __init__(self):
+        self.tmpdir = tempfile.gettempdir()
+
+
 Globals = {}
-tmpdir = tempfile.gettempdir()
+tmpdir = TmpDir()
 
 
 def matcache(function):
@@ -36,8 +42,8 @@ def matcache(function):
     """
     @functools.wraps(function)
     def wrapper(*args, **kargs):
-        cachedir = os.path.join(tmpdir, 'spinsys')
-        cachefile = os.path.join(tmpdir, 'spinsys', '{}{}'
+        cachedir = os.path.join(tmpdir.tmpdir, 'spinsys')
+        cachefile = os.path.join(tmpdir.tmpdir, 'spinsys', '{}{}'
                                  .format(function.__name__, (args, kargs)))
         if not os.path.isdir(cachedir):
             os.mkdir(cachedir)
