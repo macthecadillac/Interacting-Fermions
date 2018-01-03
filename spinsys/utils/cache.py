@@ -67,6 +67,10 @@ def matcache(function):
                             allow_pickle=False)
                     with open(cachefile + '.shape', 'wb') as fh:
                         pickle.dump(result.shape, fh)
+                else:
+                    msg = "Supported types of matrix/array are numpy.ndarray " + \
+                        "and scipy.sparse.csc.csc_matrix"
+                    raise ValueError(msg)
                 return result
     return wrapper
 
