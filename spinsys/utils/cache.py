@@ -60,7 +60,10 @@ def matcache(function):
                     np.save(cachefile, result, allow_pickle=False)
                 except ValueError:
                     # remove the empty file created during the save attempt
-                    os.remove(cachefile + '.npy')
+                    try:
+                        os.remove(cachefile + '.npy')
+                    except FileNotFoundError:
+                        pass
                     # For CSC and CSR matrices specifically
                     np.save(cachefile + '.data.npy', result.data,
                             allow_pickle=False)
