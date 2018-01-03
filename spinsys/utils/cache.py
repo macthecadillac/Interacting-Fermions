@@ -30,7 +30,7 @@ def matcache(function):
     """Caching wrapper for sparse matrix generating functions.
     Only works if the matrix in question is a
     1. numpy ndarray
-    2. scipy CSC matrix or CSR matrix or BSR matrix
+    2. scipy CSC matrix
     When reading from cache, only numpy ndarrays and scipy CSC matrices
     are returned.
 
@@ -44,9 +44,10 @@ def matcache(function):
         if not os.path.isdir(cachedir):
             os.mkdir(cachedir)
         try:
+            # try to load a dense matrix
             return np.load(cachefile + '.npy', allow_pickle=False)
-        except (ValueError, FileNotFoundError, EOFError):
-            try:    # try loading a sparse matrix
+        except FileNotFoundError:
+            try:    # try to load a sparse matrix
                 data = np.load(cachefile + '.data.npy', allow_pickle=False)
                 indices = np.load(cachefile + '.indices.npy', allow_pickle=False)
                 indptr = np.load(cachefile + '.indptr.npy', allow_pickle=False)
@@ -55,16 +56,9 @@ def matcache(function):
                 return ss.csc_matrix((data, indices, indptr), shape=shape)
             except FileNotFoundError:
                 result = function(*args)
-                try:
-                    # This will fail if the matrix is a scipy sparse matrix
-                    np.save(cachefile, result, allow_pickle=False)
-                except ValueError:
-                    # remove the empty file created during the save attempt
-                    try:
-                        os.remove(cachefile + '.npy')
-                    except FileNotFoundError:
-                        pass
-                    # For CSC and CSR matrices specifically
+                if isinstance(result, np.ndarray):
+                    np.save(cachefile + '.npy', result, allow_pickle=False)
+                elif isinstance(result, ss.csc.csc_matrix):
                     np.save(cachefile + '.data.npy', result.data,
                             allow_pickle=False)
                     np.save(cachefile + '.indices.npy', result.indices,
