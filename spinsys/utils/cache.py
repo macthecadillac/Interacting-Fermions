@@ -59,6 +59,7 @@ def matcache(function):
                     # This will fail if the matrix is a scipy sparse matrix
                     np.save(cachefile, result, allow_pickle=False)
                 except ValueError:
+                    os.remove(cachefile)    # remove the empty file created during the save attempt
                     # For CSC and CSR matrices specifically
                     np.save(cachefile + '.data.npy', result.data,
                             allow_pickle=False)
