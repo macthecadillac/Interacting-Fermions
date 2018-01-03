@@ -33,10 +33,12 @@ def matcache(function):
     2. scipy CSC matrix or CSR matrix or BSR matrix
     When reading from cache, only numpy ndarrays and scipy CSC matrices
     are returned.
+
+    DOESN'T WORK WITH FUNCTIONS WITH KEYWORD ARGUMENTS
     """
     @functools.wraps(function)
-    def wrapper(*args, **kargs):
-        hashed = str(hash((function.__name__, args, kargs)))
+    def wrapper(*args):
+        hashed = str(hash((function.__name__, args)))
         cachedir = os.path.join(tmpdir, 'spinsys')
         cachefile = os.path.join(tmpdir, 'spinsys', hashed)
         if not os.path.isdir(cachedir):
@@ -52,7 +54,7 @@ def matcache(function):
                     shape = pickle.load(fh)
                 return ss.csc_matrix((data, indices, indptr), shape=shape)
             except FileNotFoundError:
-                result = function(*args, **kargs)
+                result = function(*args)
                 try:
                     # This will fail if the matrix is a scipy sparse matrix
                     np.save(cachefile, result, allow_pickle=False)
@@ -75,14 +77,16 @@ def cache_to_ram(function):
     Works like functools.lru_cache but it also works on private
     (nested) functions which lru_cache does not. Currently does
     not have LRU limits.
+
+    DOESN'T WORK WITH FUNCTIONS WITH KEYWORD ARGUMENTS
     """
     @functools.wraps(function)
-    def wrapper(*args, **kargs):
-        dict_key = hash((function.__name__, args, kargs))
+    def wrapper(*args):
+        dict_key = hash((function.__name__, args))
         try:
             result = Globals[dict_key]
         except KeyError:
-            result = function(*args, **kargs)
+            result = function(*args)
             Globals[dict_key] = result
         return result
     return wrapper
