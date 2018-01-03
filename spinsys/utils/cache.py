@@ -36,18 +36,18 @@ def matcache(function):
     """
     @functools.wraps(function)
     def wrapper(*args, **kargs):
+        hashed = str(hash((function.__name__, args, kargs)))
         cachedir = os.path.join(tmpdir, 'spinsys')
-        cachefile = os.path.join(tmpdir, 'spinsys', '{}{}'
-                                 .format(function.__name__, (args, kargs)))
+        cachefile = os.path.join(tmpdir, 'spinsys', hashed)
         if not os.path.isdir(cachedir):
             os.mkdir(cachedir)
         try:
-            return np.load(cachefile + '.npy')
+            return np.load(cachefile + '.npy', allow_pickle=False)
         except (FileNotFoundError, EOFError):
             try:    # try loading a sparse matrix
-                data = np.load(cachefile + '.data.npy')
-                indices = np.load(cachefile + '.indices.npy')
-                indptr = np.load(cachefile + '.indptr.npy')
+                data = np.load(cachefile + '.data.npy', allow_pickle=False)
+                indices = np.load(cachefile + '.indices.npy', allow_pickle=False)
+                indptr = np.load(cachefile + '.indptr.npy', allow_pickle=False)
                 with open(cachefile + '.shape', 'rb') as fh:
                     shape = pickle.load(fh)
                 return ss.csc_matrix((data, indices, indptr), shape=shape)
@@ -78,7 +78,7 @@ def cache_to_ram(function):
     """
     @functools.wraps(function)
     def wrapper(*args, **kargs):
-        dict_key = '{}{}'.format(function.__name__, (args, kargs))
+        dict_key = hash((function.__name__, args, kargs))
         try:
             result = Globals[dict_key]
         except KeyError:
