@@ -5,14 +5,14 @@ import scipy.sparse as ss
 import functools
 
 
-def diagonals(N, h, c, phi, J, curr_j, mode):
+def diagonals(N, h, c, phi, Jz, curr_j, mode):
     """Generates the diagonal elements of the hamiltonian.
 
     Args: "N" number of sites
           "h" disorder strength
           "c" trancendental number
           "phi" phase
-          "J" coupling constant between sites
+          "Jz" z component coupling constant between sites
           "curr_j" total <Sz> for the current block
           "mode" "open" or "periodic" boundary conditions
     Returns: csc_matrix
@@ -37,7 +37,7 @@ def diagonals(N, h, c, phi, J, curr_j, mode):
             elif mode == 'open':
                 inter_contrib = sum(map(lambda x, y: x * y, basis[1:],
                                         basis[:-1]))
-            diagonal[i] = J * 0.25 * inter_contrib
+            diagonal[i] = Jz * 0.25 * inter_contrib
         return diagonal
 
     sites = np.array(range(1, N + 1))
@@ -60,11 +60,11 @@ def diagonals(N, h, c, phi, J, curr_j, mode):
 
 @functools.lru_cache(maxsize=None)
 @s.utils.cache.matcache
-def off_diagonals(N, J, curr_j, mode):
+def off_diagonals(N, Jxy, curr_j, mode):
     """Generates the off-diagonal elements of the hamiltonian.
 
     Args: "N" number of sites
-          "J" coupling constant between adjacent sites
+          "Jxy" x/y component coupling constant between adjacent sites
           "curr_j" total <Sz> for the current block
           "mode" "open" or "periodic" boundary conditions
     Returns: csc_matrix
@@ -92,11 +92,11 @@ def off_diagonals(N, J, curr_j, mode):
                 j = G['complete_basis'][N][curr_j][1][j_loc]
                 col_ind.append(j)
                 row_ind.append(i)
-                data.append(0.5 * J)
+                data.append(0.5 * Jxy)
     return ss.csc_matrix((data, (row_ind, col_ind)), shape=[mat_dim, mat_dim])
 
 
-def H(N, h, c, phi, J=1, curr_j=0, mode='open'):
+def H(N, h, c, phi, Jxy=1, Jz=1, curr_j=0, mode='open'):
     """Generates the full hamiltonian for a block corresponding to a
     specific total spin.
 
@@ -109,5 +109,5 @@ def H(N, h, c, phi, J=1, curr_j=0, mode='open'):
           "mode" "open" or "periodic" boundary conditions
     Returns: csc_matrix
     """
-    return diagonals(N, h, c, phi, J, curr_j, mode) + \
-           off_diagonals(N, J, curr_j, mode)
+    return diagonals(N, h, c, phi, Jz, curr_j, mode) + \
+           off_diagonals(N, Jxy, curr_j, mode)
