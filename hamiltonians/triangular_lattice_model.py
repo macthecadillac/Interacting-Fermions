@@ -142,7 +142,8 @@ class SemiPeriodicBCSiteVector(SiteVector):
 def _generate_bonds(Nx, Ny):
     N = Nx * Ny
     vec = SiteVector((0, 0), Nx, Ny)
-    range_orders = [set(), set(), set()]  # sets de-duplicates the list of bonds
+    # range_orders = [set(), set(), set()]  # sets de-duplicates the list of bonds
+    range_orders = [[], [], []]
     for i in range(N):
         nearest_neighbor = vec.nearest_neighboring_sites
         second_neighbor = vec.second_neighboring_sites
@@ -152,7 +153,7 @@ def _generate_bonds(Nx, Ny):
             for n in neighbors[leap]:
                 # sort them so identical bonds will always have the same hash
                 bond = sorted((vec, n))
-                bonds.add(tuple(bond))
+                bonds.append(tuple(bond))
         vec = vec.next_site()
     return range_orders
 
@@ -313,6 +314,9 @@ class BlochFunc:
 
     def __hash__(self):
         return hash((self.lead, self.norm))
+
+    def __repr__(self):
+        return "BlochFunc lead: {} decs: {} norm: {}".format(self.lead, self.decs, self.norm)
 
 
 class BlochFuncSet:
