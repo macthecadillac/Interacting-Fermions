@@ -237,7 +237,7 @@ def hamiltonian_dp(Nx, Ny, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
     H: scipy.sparse.csc_matrix
     """
     components = hamiltonian_dp_components(Nx, Ny)
-    H_pm1, H_z1, H_ppmm, H_pmz, H_pm2, H_z2, H_pm3, H_z3 = components
+    H_pm1, H_z1, H_ppmm, H_pmz, H_pm2, H_z2, H_z3, H_pm3 = components
     nearest_neighbor_terms = J_pm * H_pm1 + J_z * H_z1 + J_ppmm * H_ppmm + J_pmz * H_pmz
     second_neighbor_terms = third_neighbor_terms = 0
     if not J2 == 0:
