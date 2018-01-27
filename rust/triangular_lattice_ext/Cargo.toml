@@ -1,0 +1,17 @@
+[package]
+name = "triangular_lattice_ext"
+version = "0.1.0"
+authors = ["Mac Lee <macthecadillac@gmail.com>"]
+
+[lib]
+name = "triangular_lattice_ext"
+crate-type = ["dylib"]
+
+[dependencies]
+libc = "0.2"
+num-complex = "0.1"
+fnv = "1.0"
+
+[profile.release]
+# debug = true
+opt-level = 3
