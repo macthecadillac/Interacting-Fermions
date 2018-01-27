@@ -1,4 +1,4 @@
-Copyright (c) 2016-2017, California State University, based on research
+Copyright (c) 2016-2018, California State University, based on research
 sponsored by the National Science Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
