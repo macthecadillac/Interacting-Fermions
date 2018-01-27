@@ -9,3 +9,5 @@
 **/.ropeproject/*
 *.egg-info/*
 **/*.so
+**/target/*
+**/Cargo.lock
