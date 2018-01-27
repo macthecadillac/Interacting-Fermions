@@ -6,6 +6,8 @@ import sys
 import stat
 
 
+# key = module name (the exact name of the cargo project)
+# val = destination of the generated shared object
 rust_modules = {
     "triangular_lattice_ext": "hamiltonians",
 }
@@ -33,6 +35,6 @@ for lib, dest_dir in rust_modules.items():
 setup(
     name="spinsys",
     packages=find_packages(),
-    install_requires=['numpy>=1.8', 'scipy>=0.13'],
+    install_requires=['numpy>=1.8', 'scipy>=0.13', 'cffi>=1.11'],
     include_package_data=True,
 )
