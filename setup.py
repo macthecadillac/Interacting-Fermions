@@ -27,9 +27,12 @@ def build_rust_binary(lib, dest_dir):
     os.chmod(dest, st.st_mode | stat.S_IEXEC)
 
 
-# build Rust projects
-for lib, dest_dir in rust_modules.items():
-    build_rust_binary(lib, dest_dir)
+if shutil.which("cargo"):
+    for lib, dest_dir in rust_modules.items():
+        build_rust_binary(lib, dest_dir)
+else:
+    print("Cargo not found in path. Continue without building Rust modules.")
+    print("Note: The Rust-based functions will not be available.")
 
 
 setup(

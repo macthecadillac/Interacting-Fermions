@@ -2,8 +2,8 @@
 
 This code depends on numpy and scipy and works only with Python 3.
 
-Also, you must have the Rust compiler installed on your system (or `setup.py`
-won't work). See <https://www.rust-lang.org/en-US/install.html>.
+For the functions written in Rust to be available, you need Rust on your system.
+See <https://www.rust-lang.org/en-US/install.html>.
 
 ## Setting up
 

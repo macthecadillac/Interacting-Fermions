@@ -307,43 +307,73 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
             self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
 
 
-ffi = FFI()
-header = """
-typedef struct {
-    double * ptr;
-    size_t len;
-} vector;
+def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm, J_z, J_ppmm, J_pmz, J2, J3):
+    """construct the full Hamiltonian matrix in the given momentum configuration
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    J_pm: int/float
+        the J+- parameter (defaults to 0)
+    J_z: int/float
+        the Jz parameter (defaults to 0)
+    J_ppmm: int/float
+        the J++-- parameter (defaults to 0)
+    J_pmz: int/float
+        the J+-z parameter (defaults to 0)
+    J2: int/float
+        the J2 parameter (defaults to 0)
+    J3: int/float
+        the J3 parameter (defaults to 0)
+
+    Returns
+    --------------------
+    H: scipy.sparse.csc_matrix
+    """
+
+    ffi = FFI()
+    header = """
+    typedef struct {
+        double * ptr;
+        size_t len;
+    } vector;
 
 
-typedef struct {
-    vector data;
-    vector col;
-    vector row;
-} coordmatrix;
+    typedef struct {
+        vector data;
+        vector col;
+        vector row;
+    } coordmatrix;
 
 
-coordmatrix hamiltonian(
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        double,
-        double,
-        double,
-        double,
-        double,
-        double
-);
-"""
+    coordmatrix hamiltonian(
+            unsigned int,
+            unsigned int,
+            unsigned int,
+            unsigned int,
+            double,
+            double,
+            double,
+            double,
+            double,
+            double
+    );
+    """
+    ffi.cdef(header)
+    _lib = ffi.dlopen(os.path.join(os.path.dirname(__file__),
+                                   "triangular_lattice_ext.so"))
 
-ffi.cdef(header)
-_lib = ffi.dlopen(os.path.join(os.path.dirname(__file__),
-                               "triangular_lattice_ext.so"))
-
-
-def hamiltonian_consv_k(Nx, Ny, kx, ky, J_z, J_pm, J_ppmm, J_pmz, J2, J3):
-    matrix = _lib.hamiltonian(Nx, Ny, kx, ky, J_z, J_pm, J_ppmm, J_pmz, J2, J3)
-    data = np.frombuffer(ffi.buffer(matrix.data.ptr, matrix.data.len * 16), np.complex128)
-    col = np.frombuffer(ffi.buffer(matrix.col.ptr, matrix.col.len * 4), np.int32)
-    row = np.frombuffer(ffi.buffer(matrix.row.ptr, matrix.row.len * 4), np.int32)
+    mat = _lib.hamiltonian(Nx, Ny, kx, ky, J_z, J_pm, J_ppmm, J_pmz, J2, J3)
+    data = np.frombuffer(ffi.buffer(mat.data.ptr, mat.data.len * 16), np.complex128)
+    col = np.frombuffer(ffi.buffer(mat.col.ptr, mat.col.len * 4), np.int32)
+    row = np.frombuffer(ffi.buffer(mat.row.ptr, mat.row.len * 4), np.int32)
     return sparse.csc_matrix((data, (col, row)))
