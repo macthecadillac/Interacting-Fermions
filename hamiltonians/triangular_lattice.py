@@ -307,7 +307,7 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
             self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
 
 
-def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm, J_z, J_ppmm, J_pmz, J2, J3):
+def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
     """construct the full Hamiltonian matrix in the given momentum configuration
 
     Parameters
