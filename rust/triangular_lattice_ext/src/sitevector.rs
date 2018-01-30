@@ -1,4 +1,4 @@
-use super::*;
+use super::PI;
 
 #[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub struct SiteVector {
