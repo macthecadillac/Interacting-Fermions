@@ -9,7 +9,7 @@ import stat
 # key = module name (the exact name of the cargo project)
 # val = destination of the generated shared object
 rust_modules = {
-    "triangular_lattice_ext": "hamiltonians",
+    "triangular_lattice_ext": "models",
 }
 
 
