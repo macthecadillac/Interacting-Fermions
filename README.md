@@ -17,9 +17,10 @@ rerun `setup.py`.
 
 Please refer to the docstrings of individual functions and classes.
 
-All hamiltonian definitions go into the "hamiltonians" folder and all scripts,
-big and small, go into the "scripts" folder. Only reusable Python code goes into
-"spinsys".
+All model specifications (hamiltonians and other model specific code) belong to
+"models" and all scripts, big and small, go into the "scripts" folder. Only
+reusable Python code goes into "spinsys". The "hamiltonians" directory exists to
+accommodate old code that depends on the old directory structure.
 
 All Rust code goes into "rust".
 
