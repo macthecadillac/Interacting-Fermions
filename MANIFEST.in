@@ -1,1 +1,1 @@
-include hamiltonians/triangular_lattice_ext.so
+include models/triangular_lattice_ext.so
