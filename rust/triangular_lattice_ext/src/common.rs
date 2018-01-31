@@ -203,8 +203,8 @@ pub fn bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
 }
 
 pub fn find_leading_state<'a>(dec: u32,
-                           hashtable: &'a FnvHashMap<&u32, &BlochFunc>
-                           ) -> Option<(&'a BlochFunc, Complex<f64>)> {
+                              hashtable: &'a FnvHashMap<&u32, &BlochFunc>
+                              ) -> Option<(&'a BlochFunc, Complex<f64>)> {
 
     match hashtable.get(&dec) {
         None => None,
