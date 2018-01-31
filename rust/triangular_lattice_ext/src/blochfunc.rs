@@ -38,8 +38,7 @@ pub struct BlochFuncSet {
 impl<'a> BlochFuncSet {
     pub fn create(bfuncs: Vec<BlochFunc>) -> BlochFuncSet {
         let data = bfuncs;
-        let nonzero = data.iter()
-            .fold(0, |mut acc, ref x| { if x.norm > 1e-8 { acc += 1 }; acc });
+        let nonzero = data.len() as u32;
         BlochFuncSet{ data, nonzero }
     }
 

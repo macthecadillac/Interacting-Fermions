@@ -190,8 +190,10 @@ pub fn _bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
                 .map(|&x| x.norm_sqr())
                 .sum::<f64>()
                 .sqrt();
-            let mut bfunc = BlochFunc { lead, decs, norm };
-            bfuncs.push(bfunc);
+            if norm > 1e-8 {
+                let mut bfunc = BlochFunc { lead, decs, norm };
+                bfuncs.push(bfunc);
+            }
         }
     }
 
@@ -206,18 +208,15 @@ pub fn _find_leading_state<'a>(dec: u32,
 
     match hashtable.get(&dec) {
         Some(&cntd_state) => 
-            if cntd_state.norm < 1e-8 { None }
-            else {
-                match cntd_state.decs.get(&dec) {
-                    Some(&p) => {
-                        let mut phase = p.conj();
-                        phase /= phase.norm();
-                        Some((cntd_state, phase))
-                    },
-                    None => None
-                }
+            match cntd_state.decs.get(&dec) {
+                Some(&p) => {
+                    let mut phase = p.conj();
+                    phase /= phase.norm();
+                    Some((cntd_state, phase))
+                },
+                None => None
             },
-        None => panic!("Leading state not found!")
+        None => panic!("Leading state not found!") // this shouldn't happen
     }
 }
 
@@ -246,4 +245,3 @@ pub fn _gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
 pub fn _coeff(orig_state: &BlochFunc, cntd_state: &BlochFunc) -> f64 {
     cntd_state.norm / orig_state.norm
 }
-
