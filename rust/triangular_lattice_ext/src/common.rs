@@ -208,15 +208,14 @@ pub fn find_leading_state<'a>(dec: u32,
 
     match hashtable.get(&dec) {
         None => None,
-        Some(&cntd_state) => 
-            match cntd_state.decs.get(&dec) {
-                None     => None,
-                Some(&p) => {
-                    let mut phase = p.conj();
-                    phase /= phase.norm();
-                    Some((cntd_state, phase))
-                },
-            }
+        Some(&cntd_state) => match cntd_state.decs.get(&dec) {
+            None     => None,
+            Some(&p) => {
+                let mut phase = p.conj();
+                phase /= phase.norm();
+                Some((cntd_state, phase))
+            },
+        }
     }
 }
 

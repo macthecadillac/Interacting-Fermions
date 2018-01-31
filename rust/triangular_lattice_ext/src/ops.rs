@@ -18,10 +18,10 @@ pub fn ss_z_elements(sites: &(Vec<u32>, Vec<u32>), orig_state: &BlochFunc) -> f6
 
 #[allow(non_snake_case)]
 pub fn ss_pm_elements(J: f64, sites: &(Vec<u32>, Vec<u32>),
-                  orig_state: &BlochFunc,
-                  dec_to_ind: &FnvHashMap<u32, u32>,
-                  hashtable: &FnvHashMap<&u32, &BlochFunc>
-                  ) -> FnvHashMap<u32, Complex<f64>> {
+                      orig_state: &BlochFunc,
+                      dec_to_ind: &FnvHashMap<u32, u32>,
+                      hashtable: &FnvHashMap<&u32, &BlochFunc>
+                      ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(J, 0.);
     let mut j_element = FnvHashMap::default();
     let (ref site1, ref site2) = *sites;
@@ -52,11 +52,11 @@ pub fn ss_pm_elements(J: f64, sites: &(Vec<u32>, Vec<u32>),
 
 #[allow(non_snake_case)]
 pub fn ss_ppmm_elements(nx: u32, ny: u32, J: f64,
-                    sites: &(Vec<u32>, Vec<u32>),
-                    orig_state: &BlochFunc,
-                    dec_to_ind: &FnvHashMap<u32, u32>,
-                    hashtable: &FnvHashMap<&u32, &BlochFunc>
-                    ) -> FnvHashMap<u32, Complex<f64>> {
+                        sites: &(Vec<u32>, Vec<u32>),
+                        orig_state: &BlochFunc,
+                        dec_to_ind: &FnvHashMap<u32, u32>,
+                        hashtable: &FnvHashMap<&u32, &BlochFunc>
+                        ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(J, 0.);
     let mut j_element = FnvHashMap::default();
     let (ref site1, ref site2) = *sites;
@@ -94,11 +94,11 @@ pub fn ss_ppmm_elements(nx: u32, ny: u32, J: f64,
 
 #[allow(non_snake_case)]
 pub fn ss_pmz_elements(nx: u32, ny: u32, J: f64,
-                   sites: &(Vec<u32>, Vec<u32>),
-                   orig_state: &BlochFunc,
-                   dec_to_ind: &FnvHashMap<u32, u32>,
-                   hashtable: &FnvHashMap<&u32, &BlochFunc>,
-                   ) -> FnvHashMap<u32, Complex<f64>> {
+                       sites: &(Vec<u32>, Vec<u32>),
+                       orig_state: &BlochFunc,
+                       dec_to_ind: &FnvHashMap<u32, u32>,
+                       hashtable: &FnvHashMap<&u32, &BlochFunc>,
+                       ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(0., J);  // the entire operator was multiplied by i
     let mut j_element = FnvHashMap::default();
     let (ref site1, ref site2) = *sites;
