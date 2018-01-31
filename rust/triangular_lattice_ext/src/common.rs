@@ -120,46 +120,6 @@ pub fn _generate_bonds(nx: u32, ny: u32) -> Vec<Vec<Vec<SiteVector>>> {
     bonds_by_range
 }
 
-pub fn _phase_arr(nx: u32, ny: u32, kx: u32, ky: u32) -> Vec<Complex<f64>> {
-    let xphase = (0..nx)
-        .map(|m| 2. * PI * (kx as f64) * (m as f64) / (nx as f64))
-        .map(|x| Complex::new(0., x))
-        .map(|x| x.exp())
-        .collect::<Vec<_>>();
-
-    let yphase = (0..ny)
-        .map(|n| 2. * PI * (ky as f64) * (n as f64) / (ny as f64))
-        .map(|x| Complex::new(0., x))
-        .map(|x| x.exp());
-
-    let mut phase_arr: Vec<Complex<f64>> = Vec::new();
-    for iy in yphase {
-        for ix in &xphase {
-            phase_arr.push(ix * iy);
-        }
-    }
-
-    phase_arr
-}
-
-pub fn _norm_coeff(bfunc: &BlochFunc, nx: u32, ny: u32, kx: u32, ky: u32) -> f64 {
-    let n = (nx * ny) as usize;
-    let phase_arr = _phase_arr(nx, ny, kx, ky);
-    let mut phases: Vec<Complex<f64>> = Vec::with_capacity(n);
-    for locs in bfunc.decs.values() {
-        let mut tot_phase = Complex::new(0., 0.);
-        for &loc in locs.iter() {
-            tot_phase += phase_arr[loc as usize];
-        }
-        phases.push(tot_phase);
-    }
-
-    phases.into_iter()
-        .map(|x| x.norm().powf(2.))
-        .sum::<f64>()
-        .sqrt()
-}
-
 pub fn _gamma(nx: u32, ny: u32, s1: u32, s2: u32) -> Complex<f64> {
     let m = (s1 as f64).log2().round() as u32;
     let n = (s2 as f64).log2().round() as u32;
@@ -186,10 +146,16 @@ pub fn _interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
     )
 }
 
-pub fn zero_momentum_states<'a>(nx: u32, ny: u32) -> BlochFuncSet {
+pub fn _bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
     let n = nx * ny;
     let mut sieve = vec![true; 2_usize.pow(n)];
     let mut bfuncs: Vec<BlochFunc> = Vec::new();
+    let phase = |i, j| {
+        let r = 1.;
+        let ang1 = 2. * PI * (i * kx) as f64 / nx as f64;
+        let ang2 = 2. * PI * (j * ky) as f64 / ny as f64;
+        Complex::from_polar(&r, &(ang1 + ang2))
+    };
 
     for dec in 0..2_usize.pow(n) {
         if sieve[dec]
@@ -200,31 +166,18 @@ pub fn zero_momentum_states<'a>(nx: u32, ny: u32) -> BlochFuncSet {
             // "decs" is a hashtable that holds vectors whose entries
             // correspond to Bloch function constituent configurations which
             // are mapped to single decimals that represent the leading states.
-            let mut decs: FnvHashMap<u32, Vec<u32>> = FnvHashMap::default();
+            let mut decs: FnvHashMap<u32, Complex<f64>> = FnvHashMap::default();
             // "new_dec" represents the configuration we are currently iterating
             // over.
             let mut new_dec = dec as u32;
-            for n in 0..ny {
-                for m in 0..nx {
-                    // "loc" represents the number of translations from 0
-                    // (the leading state) to the current configuration.
-                    let loc = n * nx + m;
-                    // set sieve entry to false since we have iterated over it
+            for j in 0..ny {
+                for i in 0..nx {
                     sieve[new_dec as usize] = false;
-                    // if "decs" already contains our key (the leading state)
-                    // then we simply add the current "loc" to the vector
-                    // corresponding to the key.
                     if decs.contains_key(&new_dec) {
-                        match decs.get_mut(&new_dec) {
-                            Some(v) => v.push(loc),
-                            None => ()  // cannot put the insert here because
-                                        // of double mutable borrowing
-                        }
+                        let &p = decs.get(&new_dec).unwrap();
+                        decs.insert(new_dec, p + phase(i, j));
                     } else {
-                        // since the hashtable does not contain our key, we add
-                        // the key then add "loc" to it
-                        let mut v = vec![loc];
-                        decs.insert(new_dec, v);
+                        decs.insert(new_dec, phase(i, j));
                     }
                     new_dec = translate_x(new_dec, nx, ny);
                 }
@@ -232,9 +185,13 @@ pub fn zero_momentum_states<'a>(nx: u32, ny: u32) -> BlochFuncSet {
             }
 
             let lead = dec as u32;
-            let norm = None;
+            let norm = decs.values()
+                .into_iter()
+                .map(|&x| x.norm_sqr())
+                .sum::<f64>()
+                .sqrt();
             let mut bfunc = BlochFunc { lead, decs, norm };
-            bfuncs.push(bfunc)
+            bfuncs.push(bfunc);
         }
     }
 
@@ -243,49 +200,31 @@ pub fn zero_momentum_states<'a>(nx: u32, ny: u32) -> BlochFuncSet {
     table
 }
 
-pub fn _bloch_states(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
-    let mut bfuncs = zero_momentum_states(nx, ny);
-    let mut nonzero = 0;
-    for bfunc in bfuncs.data.iter_mut() {
-        let norm = _norm_coeff(bfunc, nx, ny, kx, ky);
-        bfunc.norm = Some(norm);
-        if norm > 1e-8 {
-            nonzero += 1;
-        }
-    }
-    bfuncs.nonzero = Some(nonzero);
-    bfuncs
-}
-
 pub fn _find_leading_state<'a>(dec: u32,
-                           hashtable: &'a FnvHashMap<&u32, &BlochFunc>,
-                           phase_arr: &Vec<Complex<f64>>
+                           hashtable: &'a FnvHashMap<&u32, &BlochFunc>
                            ) -> Option<(&'a BlochFunc, Complex<f64>)> {
-    let leading_state = match hashtable.get(&dec) {
+
+    match hashtable.get(&dec) {
         Some(&cntd_state) => 
-            if cntd_state.norm < Some(1e-8) { None }
+            if cntd_state.norm < 1e-8 { None }
             else {
-                let mut phase = Complex::new(0., 0.);
-                if let Some(locs) = cntd_state.decs.get(&dec) {
-                    unsafe {
-                        for &loc in locs.iter() {
-                            phase += phase_arr.get_unchecked(loc as usize);
-                        }
-                    }
+                match cntd_state.decs.get(&dec) {
+                    Some(&p) => {
+                        let mut phase = p.conj();
+                        phase /= phase.norm();
+                        Some((cntd_state, phase))
+                    },
+                    None => None
                 }
-                phase = phase.conj();
-                phase /= phase.norm();
-                Some((cntd_state, phase))
             },
         None => panic!("Leading state not found!")
-    };
-    leading_state
+    }
 }
 
 pub fn _gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
     -> (FnvHashMap<u32, &'a BlochFunc>, FnvHashMap<u32, u32>) {
     let nonzero_states = bfuncs.iter()
-        .filter(|s| s.norm.unwrap() > 1e-8)
+        .filter(|s| s.norm > 1e-8)
         .collect::<Vec<_>>();
     let dec = nonzero_states.iter()
         .map(|x| x.lead)
@@ -305,6 +244,6 @@ pub fn _gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
 }
 
 pub fn _coeff(orig_state: &BlochFunc, cntd_state: &BlochFunc) -> f64 {
-    cntd_state.norm.unwrap() / orig_state.norm.unwrap()
+    cntd_state.norm / orig_state.norm
 }
 

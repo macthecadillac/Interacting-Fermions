@@ -20,8 +20,7 @@ pub fn ss_z_elements(sites: &(Vec<u32>, Vec<u32>), orig_state: &BlochFunc) -> f6
 pub fn ss_pm_elements(J: f64, sites: &(Vec<u32>, Vec<u32>),
                   orig_state: &BlochFunc,
                   dec_to_ind: &FnvHashMap<u32, u32>,
-                  hashtable: &FnvHashMap<&u32, &BlochFunc>,
-                  phase_arr: &Vec<Complex<f64>>
+                  hashtable: &FnvHashMap<&u32, &BlochFunc>
                   ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(J, 0.);
     let mut j_element = FnvHashMap::default();
@@ -34,7 +33,7 @@ pub fn ss_pm_elements(J: f64, sites: &(Vec<u32>, Vec<u32>),
             (false, true) => new_dec = orig_state.lead + s1 - s2,
             _ => continue
         }
-        match _find_leading_state(new_dec, &hashtable, &phase_arr) {
+        match _find_leading_state(new_dec, &hashtable) {
             Some((cntd_state, phase)) => {
                 let j = *(dec_to_ind.get(&(cntd_state.lead)).unwrap());
                 let coeff = phase * _coeff(&orig_state, &cntd_state);
@@ -56,8 +55,7 @@ pub fn ss_ppmm_elements(nx: u32, ny: u32, J: f64,
                     sites: &(Vec<u32>, Vec<u32>),
                     orig_state: &BlochFunc,
                     dec_to_ind: &FnvHashMap<u32, u32>,
-                    hashtable: &FnvHashMap<&u32, &BlochFunc>,
-                    phase_arr: &Vec<Complex<f64>>
+                    hashtable: &FnvHashMap<&u32, &BlochFunc>
                     ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(J, 0.);
     let mut j_element = FnvHashMap::default();
@@ -77,7 +75,7 @@ pub fn ss_ppmm_elements(nx: u32, ny: u32, J: f64,
             }
             _ => continue
         }
-        match _find_leading_state(new_dec, &hashtable, &phase_arr) {
+        match _find_leading_state(new_dec, &hashtable) {
             Some((cntd_state, phase)) => {
                 let j = *(dec_to_ind.get(&(cntd_state.lead)).unwrap());
                 let coeff = phase * _coeff(&orig_state, &cntd_state);
@@ -100,7 +98,6 @@ pub fn ss_pmz_elements(nx: u32, ny: u32, J: f64,
                    orig_state: &BlochFunc,
                    dec_to_ind: &FnvHashMap<u32, u32>,
                    hashtable: &FnvHashMap<&u32, &BlochFunc>,
-                   phase_arr: &Vec<Complex<f64>>
                    ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(0., J);  // the entire operator was multiplied by i
     let mut j_element = FnvHashMap::default();
@@ -120,7 +117,7 @@ pub fn ss_pmz_elements(nx: u32, ny: u32, J: f64,
                 gamma -= _gamma(nx, ny, s1, s2);
             }
 
-            match _find_leading_state(new_dec, &hashtable, &phase_arr) {
+            match _find_leading_state(new_dec, &hashtable) {
                 Some((cntd_state, phase)) => {
                     let j = *(dec_to_ind.get(&(cntd_state.lead)).unwrap());
                     let coeff = phase * _coeff(&orig_state, &cntd_state);

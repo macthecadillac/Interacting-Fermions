@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
 use fnv::FnvHashMap;
+use num_complex::Complex;
 
 #[derive(Clone, Debug)]
 pub struct BlochFunc {
     pub lead: u32,
-    pub decs: FnvHashMap<u32, Vec<u32>>,
-    pub norm: Option<f64>,
+    pub decs: FnvHashMap<u32, Complex<f64>>,
+    pub norm: f64,
 }
 
 impl Ord for BlochFunc {
@@ -31,13 +32,14 @@ impl Eq for BlochFunc {}
 #[derive(Clone, Debug)]
 pub struct BlochFuncSet {
     pub data: Vec<BlochFunc>,
-    pub nonzero: Option<u32>,
+    pub nonzero: u32,
 }
 
 impl<'a> BlochFuncSet {
     pub fn create(bfuncs: Vec<BlochFunc>) -> BlochFuncSet {
         let data = bfuncs;
-        let nonzero = None;
+        let nonzero = data.iter()
+            .fold(0, |mut acc, ref x| { if x.norm > 1e-8 { acc += 1 }; acc });
         BlochFuncSet{ data, nonzero }
     }
 
