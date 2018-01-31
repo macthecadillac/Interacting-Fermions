@@ -8,7 +8,7 @@ pub fn ss_z_elements(sites: &(Vec<u32>, Vec<u32>), orig_state: &BlochFunc) -> f6
     let (ref site1, ref site2) = *sites;
     let mut same_dir = 0_i32;
     for (&s1, &s2) in site1.iter().zip(site2.iter()) {
-        let (upup, downdown) = _repeated_spins(orig_state.lead, s1, s2);
+        let (upup, downdown) = repeated_spins(orig_state.lead, s1, s2);
         if upup { same_dir += 1 };
         if downdown { same_dir += 1};
     }
@@ -26,25 +26,25 @@ pub fn ss_pm_elements(J: f64, sites: &(Vec<u32>, Vec<u32>),
     let mut j_element = FnvHashMap::default();
     let (ref site1, ref site2) = *sites;
     for (&s1, &s2) in site1.iter().zip(site2.iter()) {
-        let (updown, downup) = _exchange_spin_flips(orig_state.lead, s1, s2);
+        let (updown, downup) = exchange_spin_flips(orig_state.lead, s1, s2);
         let mut new_dec: u32;
         match (updown, downup) {
             (true, false) => new_dec = orig_state.lead - s1 + s2,
             (false, true) => new_dec = orig_state.lead + s1 - s2,
             _ => continue
         }
-        match _find_leading_state(new_dec, &hashtable) {
+        match find_leading_state(new_dec, &hashtable) {
+            None => (),
             Some((cntd_state, phase)) => {
                 let j = *(dec_to_ind.get(&(cntd_state.lead)).unwrap());
-                let coeff = phase * _coeff(&orig_state, &cntd_state);
+                let coeff = phase * coeff(&orig_state, &cntd_state);
 
-                if j_element.contains_key(&j) {
-                    *j_element.get_mut(&j).unwrap() += J * coeff;
-                } else {
-                    j_element.insert(j, J * coeff);
-                }
-            },
-            None => ()
+                let element = match j_element.get(&j) {
+                    Some(&c) => c + J * coeff,
+                    None     => J * coeff
+                };
+                j_element.insert(j, element);
+            }
         }
     }
     j_element
@@ -61,32 +61,32 @@ pub fn ss_ppmm_elements(nx: u32, ny: u32, J: f64,
     let mut j_element = FnvHashMap::default();
     let (ref site1, ref site2) = *sites;
     for (&s1, &s2) in site1.iter().zip(site2.iter()) {
-        let (upup, downdown) = _repeated_spins(orig_state.lead, s1, s2);
+        let (upup, downdown) = repeated_spins(orig_state.lead, s1, s2);
         let mut new_dec: u32;
-        let mut gamma = Complex::new(0., 0.);
+        let mut _gamma = Complex::new(0., 0.);
         match (upup, downdown) {
             (true, false) => {
                 new_dec = orig_state.lead - s1 - s2;
-                gamma += _gamma(nx, ny, s1, s2).conj();
+                _gamma += gamma(nx, ny, s1, s2).conj();
             }
             (false, true) => {
                 new_dec = orig_state.lead + s1 + s2;
-                gamma += _gamma(nx, ny, s1, s2);
+                _gamma += gamma(nx, ny, s1, s2);
             }
             _ => continue
         }
-        match _find_leading_state(new_dec, &hashtable) {
+        match find_leading_state(new_dec, &hashtable) {
+            None => (),
             Some((cntd_state, phase)) => {
                 let j = *(dec_to_ind.get(&(cntd_state.lead)).unwrap());
-                let coeff = phase * _coeff(&orig_state, &cntd_state);
+                let coeff = phase * coeff(&orig_state, &cntd_state);
 
-                if j_element.contains_key(&j) {
-                    *j_element.get_mut(&j).unwrap() += J * coeff * gamma;
-                } else {
-                    j_element.insert(j, J * coeff * gamma);
-                }
-            },
-            None => ()
+                let element = match j_element.get(&j) {
+                    Some(&c) => c + J * coeff * _gamma,
+                    None     => J * coeff * _gamma
+                };
+                j_element.insert(j, element);
+            }
         }
     }
     j_element
@@ -108,30 +108,29 @@ pub fn ss_pmz_elements(nx: u32, ny: u32, J: f64,
                 if orig_state.lead | s1 == orig_state.lead { 0.5 } else { -0.5 };
 
             let mut new_dec: u32;
-            let mut gamma = Complex::new(0., 0.);
+            let mut _gamma = Complex::new(0., 0.);
             if orig_state.lead | s2 == orig_state.lead {
                 new_dec = orig_state.lead - s2;
-                gamma += _gamma(nx, ny, s1, s2).conj();
+                _gamma += gamma(nx, ny, s1, s2).conj();
             } else {
                 new_dec = orig_state.lead + s2;
-                gamma -= _gamma(nx, ny, s1, s2);
+                _gamma -= gamma(nx, ny, s1, s2);
             }
 
-            match _find_leading_state(new_dec, &hashtable) {
+            match find_leading_state(new_dec, &hashtable) {
+                None => (),
                 Some((cntd_state, phase)) => {
                     let j = *(dec_to_ind.get(&(cntd_state.lead)).unwrap());
-                    let coeff = phase * _coeff(&orig_state, &cntd_state);
+                    let coeff = phase * coeff(&orig_state, &cntd_state);
 
-                    if j_element.contains_key(&j) {
-                        *j_element.get_mut(&j).unwrap() += J * z_contrib * coeff * gamma;
-                    } else {
-                        j_element.insert(j, J * z_contrib * coeff * gamma);
-                    }
-                },
-                None => ()
+                    let element = match j_element.get(&j) {
+                        Some(&c) => c + J * z_contrib * coeff * _gamma,
+                        None     => J * z_contrib * coeff * _gamma
+                    };
+                    j_element.insert(j, element);
+                }
             }
         }
     }
     j_element
 }
-

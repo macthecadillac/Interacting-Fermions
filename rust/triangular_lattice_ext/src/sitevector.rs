@@ -113,14 +113,14 @@ impl SiteVector {
     pub fn b3_hop(&self, stride: i32) -> Option<SiteVector> {
         let v = self.b1_hop(-stride);
         let vec = match v {
+            None => None,
             Some(vec) => match vec.b2_hop(-stride) {
+                None => None,
                 Some(vec) => match vec == *self {
                     true => None,
                     false => Some(vec)
                 }
-                None => None
             }
-            None => None
         };
         vec
     }

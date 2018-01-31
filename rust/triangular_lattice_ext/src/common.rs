@@ -87,19 +87,19 @@ pub fn translate_y(dec: u32, nx: u32, ny: u32) -> u32 {
     dec / xdim + tail * pred_totdim
 }
 
-pub fn _exchange_spin_flips(dec: u32, s1: u32, s2: u32) -> (bool, bool) {
+pub fn exchange_spin_flips(dec: u32, s1: u32, s2: u32) -> (bool, bool) {
     let updown = (dec | s1 == dec) && (dec | s2 != dec);
     let downup = (dec | s1 != dec) && (dec | s2 == dec);
     (updown, downup)
 }
 
-pub fn _repeated_spins(dec: u32, s1: u32, s2: u32) -> (bool, bool) {
+pub fn repeated_spins(dec: u32, s1: u32, s2: u32) -> (bool, bool) {
     let upup = (dec | s1 == dec) && (dec | s2 == dec);
     let downdown = (dec | s1 != dec) && (dec | s2 != dec);
     (upup, downdown)
 }
 
-pub fn _generate_bonds(nx: u32, ny: u32) -> Vec<Vec<Vec<SiteVector>>> {
+pub fn generate_bonds(nx: u32, ny: u32) -> Vec<Vec<Vec<SiteVector>>> {
     let n = nx * ny;
     let mut vec = SiteVector::new((0, 0), nx, ny);
     let mut bonds_by_range = vec![Vec::new(); 3];
@@ -120,7 +120,7 @@ pub fn _generate_bonds(nx: u32, ny: u32) -> Vec<Vec<Vec<SiteVector>>> {
     bonds_by_range
 }
 
-pub fn _gamma(nx: u32, ny: u32, s1: u32, s2: u32) -> Complex<f64> {
+pub fn gamma(nx: u32, ny: u32, s1: u32, s2: u32) -> Complex<f64> {
     let m = (s1 as f64).log2().round() as u32;
     let n = (s2 as f64).log2().round() as u32;
     let vec1 = SiteVector::from_index(m, nx, ny);
@@ -130,10 +130,10 @@ pub fn _gamma(nx: u32, ny: u32, s1: u32, s2: u32) -> Complex<f64> {
     Complex::from_polar(&1.0, &ang)
 }
 
-pub fn _interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
+pub fn interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
-    let bonds_by_range = _generate_bonds(nx, ny);
+    let bonds_by_range = generate_bonds(nx, ny);
     let bonds = &bonds_by_range[l as usize - 1];
     for bond in bonds.iter() {
         site1.push(bond[0].lattice_index());
@@ -146,7 +146,7 @@ pub fn _interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
     )
 }
 
-pub fn _bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
+pub fn bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
     let n = nx * ny;
     let mut sieve = vec![true; 2_usize.pow(n)];
     let mut bfuncs: Vec<BlochFunc> = Vec::new();
@@ -173,12 +173,11 @@ pub fn _bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
             for j in 0..ny {
                 for i in 0..nx {
                     sieve[new_dec as usize] = false;
-                    if decs.contains_key(&new_dec) {
-                        let &p = decs.get(&new_dec).unwrap();
-                        decs.insert(new_dec, p + phase(i, j));
-                    } else {
-                        decs.insert(new_dec, phase(i, j));
-                    }
+                    let new_p = match decs.get(&new_dec) {
+                        Some(&p) => p + phase(i, j),
+                        None     => phase(i, j)
+                    };
+                    decs.insert(new_dec, new_p);
                     new_dec = translate_x(new_dec, nx, ny);
                 }
                 new_dec = translate_y(new_dec, nx, ny);
@@ -190,6 +189,7 @@ pub fn _bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
                 .map(|&x| x.norm_sqr())
                 .sum::<f64>()
                 .sqrt();
+
             if norm > 1e-8 {
                 let mut bfunc = BlochFunc { lead, decs, norm };
                 bfuncs.push(bfunc);
@@ -202,25 +202,25 @@ pub fn _bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
     table
 }
 
-pub fn _find_leading_state<'a>(dec: u32,
+pub fn find_leading_state<'a>(dec: u32,
                            hashtable: &'a FnvHashMap<&u32, &BlochFunc>
                            ) -> Option<(&'a BlochFunc, Complex<f64>)> {
 
     match hashtable.get(&dec) {
+        None => None,
         Some(&cntd_state) => 
             match cntd_state.decs.get(&dec) {
+                None     => None,
                 Some(&p) => {
                     let mut phase = p.conj();
                     phase /= phase.norm();
                     Some((cntd_state, phase))
                 },
-                None => None
-            },
-        None => panic!("Leading state not found!") // this shouldn't happen
+            }
     }
 }
 
-pub fn _gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
+pub fn gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
     -> (FnvHashMap<u32, &'a BlochFunc>, FnvHashMap<u32, u32>) {
     let nonzero_states = bfuncs.iter()
         .filter(|s| s.norm > 1e-8)
@@ -242,6 +242,6 @@ pub fn _gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
     (ind_to_dec, dec_to_ind)
 }
 
-pub fn _coeff(orig_state: &BlochFunc, cntd_state: &BlochFunc) -> f64 {
+pub fn coeff(orig_state: &BlochFunc, cntd_state: &BlochFunc) -> f64 {
     cntd_state.norm / orig_state.norm
 }
