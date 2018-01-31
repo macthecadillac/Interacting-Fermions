@@ -222,10 +222,7 @@ pub fn find_leading_state<'a>(dec: u32,
 
 pub fn gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
     -> (FnvHashMap<u32, &'a BlochFunc>, FnvHashMap<u32, u32>) {
-    let nonzero_states = bfuncs.iter()
-        .filter(|s| s.norm > 1e-8)
-        .collect::<Vec<_>>();
-    let dec = nonzero_states.iter()
+    let dec = bfuncs.iter()
         .map(|x| x.lead)
         .collect::<Vec<_>>();
     let nstates = dec.len();
@@ -236,7 +233,7 @@ pub fn gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
         .zip(inds.clone())
         .collect::<FnvHashMap<u32, u32>>();
     let ind_to_dec = inds.into_iter()
-        .zip(nonzero_states)
+        .zip(bfuncs.iter())
         .collect::<FnvHashMap<u32, &BlochFunc>>();
 
     (ind_to_dec, dec_to_ind)
