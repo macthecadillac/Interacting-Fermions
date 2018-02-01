@@ -377,3 +377,30 @@ def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, 
     col = np.frombuffer(ffi.buffer(mat.col.ptr, mat.col.len * 4), np.int32)
     row = np.frombuffer(ffi.buffer(mat.row.ptr, mat.row.len * 4), np.int32)
     return sparse.csc_matrix((data, (col, row)))
+
+
+def min_necessary_ks(Nx, Ny):
+    """Returns the momentum that we absolutely need to compute
+
+    Parameters
+    --------------------
+    Nx: int
+    Ny: int
+
+    Returns
+    --------------------
+    list of ints
+    """
+    ks = []
+    arrs = []
+    for kx in range(Nx):
+        for ky in range(Ny):
+            arr = np.outer(np.exp(2j * np.pi * kx * np.arange(Nx) / Nx),
+                           np.exp(2j * np.pi * ky * np.arange(Ny) / Ny))
+            for arr0 in arrs:
+                if np.allclose(arr0, arr) or np.allclose(arr0, arr.conjugate()):
+                    break
+            else:
+                ks.append((kx, ky))
+                arrs.append(arr)
+    return ks
