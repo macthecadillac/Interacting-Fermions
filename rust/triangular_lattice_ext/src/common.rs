@@ -24,21 +24,21 @@ impl<T> CComplex<T> {
 
 #[repr(C)]
 pub struct Vector<T> {
-    ptr: *const T,
-    len: size_t
+    pub ptr: *mut T,
+    pub len: size_t
 }
 
 impl<T> Vector<T> {
-    fn new(ptr: *const T, len: size_t) -> Vector<T> {
+    fn new(ptr: *mut T, len: size_t) -> Vector<T> {
         Vector { ptr, len }
     }
 }
 
 #[repr(C)]
 pub struct CoordMatrix<T> {
-    data: Vector<T>,
-    col: Vector<u32>,
-    row: Vector<u32>
+    pub data: Vector<T>,
+    pub col: Vector<u32>,
+    pub row: Vector<u32>
 }
 
 impl<T> CoordMatrix<T> {

@@ -160,3 +160,12 @@ pub extern fn ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     }
     CoordMatrix::new(data, cols, rows)
 }
+
+// accepts a pointer from external callers so Rust can dispose of the objects
+// passed to the caller
+#[no_mangle]
+pub unsafe extern fn request_free(mat: CoordMatrix<CComplex<f64>>) {
+    Box::from_raw(mat.data.ptr);
+    Box::from_raw(mat.col.ptr);
+    Box::from_raw(mat.row.ptr);
+}

@@ -307,6 +307,78 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
             self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
 
 
+ffi = FFI()
+header = """
+typedef struct {
+    double * ptr;
+    size_t len;
+} vector;
+
+
+typedef struct {
+    vector data;
+    vector col;
+    vector row;
+} coordmatrix;
+
+
+coordmatrix hamiltonian(
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        double,
+        double,
+        double,
+        double,
+        double,
+        double
+);
+
+void request_free(coordmatrix);
+"""
+ffi.cdef(header)
+_lib = ffi.dlopen(os.path.join(os.path.dirname(__file__),
+                               "triangular_lattice_ext.so"))
+
+
+class CoordMatrix:
+    """A class that encapsulates the matrix and provides methods that would
+    help memoery management over the FFI
+    """
+
+    def __init__(self, mat):
+        """Initializer
+
+        Parameters
+        --------------------
+        mat: CoordMatrix
+        """
+        self.__obj = mat
+        self.data = np.frombuffer(ffi.buffer(mat.data.ptr, mat.data.len * 16),
+                                  np.complex128)
+        self.col = np.frombuffer(ffi.buffer(mat.col.ptr, mat.col.len * 4),
+                                 np.int32)
+        self.row = np.frombuffer(ffi.buffer(mat.row.ptr, mat.row.len * 4),
+                                 np.int32)
+
+    def __enter__(self):
+        """For use with context manager"""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """For use with context manager"""
+        self.data = None
+        self.col = None
+        self.row = None
+        _lib.request_free(self.__obj)
+        self.__obj = None
+
+    def to_csc(self):
+        """Returns a CSC matrix"""
+        return sparse.csc_matrix((self.data, (self.col, self.row)))
+
+
 def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
     """construct the full Hamiltonian matrix in the given momentum configuration
 
@@ -337,46 +409,12 @@ def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, 
 
     Returns
     --------------------
-    H: scipy.sparse.csc_matrix
+    H: CoordMatrix (See above)
     """
-
-    ffi = FFI()
-    header = """
-    typedef struct {
-        double * ptr;
-        size_t len;
-    } vector;
-
-
-    typedef struct {
-        vector data;
-        vector col;
-        vector row;
-    } coordmatrix;
-
-
-    coordmatrix hamiltonian(
-            unsigned int,
-            unsigned int,
-            unsigned int,
-            unsigned int,
-            double,
-            double,
-            double,
-            double,
-            double,
-            double
-    );
-    """
-    ffi.cdef(header)
-    _lib = ffi.dlopen(os.path.join(os.path.dirname(__file__),
-                                   "triangular_lattice_ext.so"))
 
     mat = _lib.hamiltonian(Nx, Ny, kx, ky, J_z, J_pm, J_ppmm, J_pmz, J2, J3)
-    data = np.frombuffer(ffi.buffer(mat.data.ptr, mat.data.len * 16), np.complex128)
-    col = np.frombuffer(ffi.buffer(mat.col.ptr, mat.col.len * 4), np.int32)
-    row = np.frombuffer(ffi.buffer(mat.row.ptr, mat.row.len * 4), np.int32)
-    return sparse.csc_matrix((data, (col, row)))
+    coordmat = CoordMatrix(mat)
+    return coordmat
 
 
 def min_necessary_ks(Nx, Ny):
