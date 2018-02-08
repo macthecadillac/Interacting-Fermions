@@ -88,7 +88,7 @@ pub extern fn hamiltonian(nx: u32, ny: u32, kx: u32, ky: u32,
             data.push(CComplex::from_num_complex(entry));
         }
     }
-    CoordMatrix::new(data, cols, rows)
+    CoordMatrix::new(data, cols, rows, dims, dims)
 }
 
 fn _sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
@@ -133,7 +133,7 @@ pub extern fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
         cols.push(i);
         rows.push(i);
     }
-    CoordMatrix::new(data, cols, rows)
+    CoordMatrix::new(data, cols, rows, dims, dims)
 }
 
 #[no_mangle]
@@ -150,7 +150,7 @@ pub extern fn ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     let mut rows: Vec<u32> = Vec::with_capacity(dims as usize);
     for i in 0..dims as u32 {
         let orig_state = ind_to_dec.get(&i).unwrap();
-        let ij_elements = ops::ss_pm_elements(1.0, &sites, &orig_state,
+        let ij_elements = ops::ss_pm_elements(0.5, &sites, &orig_state,
                                               &dec_to_ind, &hashtable);
         for (j, entry) in ij_elements.into_iter() {
             rows.push(i);
@@ -158,7 +158,7 @@ pub extern fn ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
             data.push(CComplex::from_num_complex(entry));
         }
     }
-    CoordMatrix::new(data, cols, rows)
+    CoordMatrix::new(data, cols, rows, dims, dims)
 }
 
 // accepts a pointer from external callers so Rust can dispose of the objects

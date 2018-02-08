@@ -38,11 +38,14 @@ impl<T> Vector<T> {
 pub struct CoordMatrix<T> {
     pub data: Vector<T>,
     pub col: Vector<u32>,
-    pub row: Vector<u32>
+    pub row: Vector<u32>,
+    pub ncols: u32,
+    pub nrows: u32
 }
 
 impl<T> CoordMatrix<T> {
-    pub fn new(mut data: Vec<T>, mut col: Vec<u32>, mut row: Vec<u32>) -> CoordMatrix<T> {
+    pub fn new(mut data: Vec<T>, mut col: Vec<u32>, mut row: Vec<u32>,
+               ncols: u32, nrows: u32) -> CoordMatrix<T> {
         let data_ptr = data.as_mut_ptr();
         let data_len = data.len() as size_t;
 
@@ -58,7 +61,7 @@ impl<T> CoordMatrix<T> {
         let data = Vector::new(data_ptr, data_len);
         let col = Vector::new(col_ptr, col_len);
         let row = Vector::new(row_ptr, row_len);
-        CoordMatrix { data, col, row }
+        CoordMatrix { data, col, row, ncols, nrows }
     }
 }
 

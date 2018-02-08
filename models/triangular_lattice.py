@@ -319,6 +319,8 @@ typedef struct {
     vector data;
     vector col;
     vector row;
+    unsigned int ncols;
+    unsigned int nrows;
 } coordmatrix;
 
 
@@ -370,13 +372,15 @@ class CoordMatrix:
         --------------------
         mat: CoordMatrix
         """
-        self.__obj = mat
+        self.__obj = mat  # the pointer to the pointers to the arrays
         self.data = np.frombuffer(ffi.buffer(mat.data.ptr, mat.data.len * 16),
                                   np.complex128)
         self.col = np.frombuffer(ffi.buffer(mat.col.ptr, mat.col.len * 4),
                                  np.int32)
         self.row = np.frombuffer(ffi.buffer(mat.row.ptr, mat.row.len * 4),
                                  np.int32)
+        self.ncols = mat.ncols
+        self.nrows = mat.nrows
 
     def __enter__(self):
         """For use with context manager"""
@@ -392,7 +396,13 @@ class CoordMatrix:
 
     def to_csc(self):
         """Returns a CSC matrix"""
-        return sparse.csc_matrix((self.data, (self.col, self.row)))
+        return sparse.csc_matrix((self.data, (self.col, self.row)),
+                                 shape=(self.nrows, self.ncols))
+
+    def to_csr(self):
+        """Returns a CSR matrix"""
+        return sparse.csr_matrix((self.data, (self.col, self.row)),
+                                 shape=(self.nrows, self.ncols))
 
 
 def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
