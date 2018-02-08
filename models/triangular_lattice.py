@@ -335,6 +335,22 @@ coordmatrix hamiltonian(
         double
 );
 
+coordmatrix ss_z(
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int
+);
+
+coordmatrix ss_pm(
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int
+);
+
 void request_free(coordmatrix);
 """
 ffi.cdef(header)
@@ -413,6 +429,62 @@ def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, 
     """
 
     mat = _lib.hamiltonian(Nx, Ny, kx, ky, J_z, J_pm, J_ppmm, J_pmz, J2, J3)
+    coordmat = CoordMatrix(mat)
+    return coordmat
+
+
+def ss_z(Nx, Ny, kx, ky, l):
+    """construct the Σsz_i * sz_j operators with the given separation
+    with translational symmetry taken into account
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    l:  int
+        the separation between sites: |i - j|
+
+    Returns
+    --------------------
+    ss_z: CoordMatrix (See above)
+    """
+    mat = _lib.ss_z(Nx, Ny, kx, ky, l)
+    coordmat = CoordMatrix(mat)
+    return coordmat
+
+
+def ss_pm(Nx, Ny, kx, ky, l):
+    """construct the Σsz_i * sz_j operators with the given separation
+    with translational symmetry taken into account
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    l:  int
+        the separation between sites: |i - j|
+
+    Returns
+    --------------------
+    ss_z: CoordMatrix (See above)
+    """
+    mat = _lib.ss_pm(Nx, Ny, kx, ky, l)
     coordmat = CoordMatrix(mat)
     return coordmat
 
