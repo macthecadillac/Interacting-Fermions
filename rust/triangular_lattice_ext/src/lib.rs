@@ -91,6 +91,107 @@ pub extern fn hamiltonian(nx: u32, ny: u32, kx: u32, ky: u32,
     CoordMatrix::new(data, cols, rows, dims, dims)
 }
 
+#[no_mangle]
+pub extern fn h_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    -> CoordMatrix<CComplex<f64>> {
+    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let dims = bfuncs.nonzero;
+    let (ind_to_dec, _) = gen_ind_dec_conv_dicts(&bfuncs);
+    let sites = interacting_sites(nx, ny, l);
+
+    let mut data: Vec<CComplex<f64>> = Vec::with_capacity(dims as usize);
+    let cols = (0..dims as u32).collect::<Vec<u32>>();
+    let rows = (0..dims as u32).collect::<Vec<u32>>();
+    for i in 0..dims as u32 {
+        let orig_state = ind_to_dec.get(&i).unwrap();
+        let i_element = ops::ss_z_elements(&sites, &orig_state);
+        let re = i_element;
+        let im = 0.;
+        data.push(CComplex { re, im });
+    }
+    CoordMatrix::new(data, cols, rows, dims, dims)
+}
+
+#[no_mangle]
+pub extern fn h_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    -> CoordMatrix<CComplex<f64>> {
+    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let dims = bfuncs.nonzero;
+    let hashtable = blochfunc::BlochFuncSet::build_dict(&bfuncs);
+    let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
+    let sites = interacting_sites(nx, ny, l);
+
+    let alloc_size = dims * (1 + 8 * nx * ny);
+    let mut data: Vec<CComplex<f64>> = Vec::with_capacity(alloc_size as usize);
+    let mut cols: Vec<u32> = Vec::with_capacity(alloc_size as usize);
+    let mut rows: Vec<u32> = Vec::with_capacity(alloc_size as usize);
+    for i in 0..dims as u32 {
+        let orig_state = ind_to_dec.get(&i).unwrap();
+        let ij_elements = ops::ss_pm_elements(1.0, &sites, &orig_state,
+                                              &dec_to_ind, &hashtable);
+        for (j, entry) in ij_elements.into_iter() {
+            rows.push(i);
+            cols.push(j);
+            data.push(CComplex::from_num_complex(entry));
+        }
+    }
+    CoordMatrix::new(data, cols, rows, dims, dims)
+}
+
+#[no_mangle]
+pub extern fn h_ss_ppmm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    -> CoordMatrix<CComplex<f64>> {
+    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let dims = bfuncs.nonzero;
+    let hashtable = blochfunc::BlochFuncSet::build_dict(&bfuncs);
+    let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
+    let sites = interacting_sites(nx, ny, l);
+
+    let alloc_size = dims * (1 + 8 * nx * ny);
+    let mut data: Vec<CComplex<f64>> = Vec::with_capacity(alloc_size as usize);
+    let mut cols: Vec<u32> = Vec::with_capacity(alloc_size as usize);
+    let mut rows: Vec<u32> = Vec::with_capacity(alloc_size as usize);
+    for i in 0..dims as u32 {
+        let orig_state = ind_to_dec.get(&i).unwrap();
+        let ij_elements = ops::ss_ppmm_elements(nx, ny, 1.0, &sites,
+                                                &orig_state, &dec_to_ind,
+                                                &hashtable);
+        for (j, entry) in ij_elements.into_iter() {
+            rows.push(i);
+            cols.push(j);
+            data.push(CComplex::from_num_complex(entry));
+        }
+    }
+    CoordMatrix::new(data, cols, rows, dims, dims)
+}
+
+#[no_mangle]
+pub extern fn h_ss_pmz(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    -> CoordMatrix<CComplex<f64>> {
+    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let dims = bfuncs.nonzero;
+    let hashtable = blochfunc::BlochFuncSet::build_dict(&bfuncs);
+    let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
+    let sites = interacting_sites(nx, ny, l);
+
+    let alloc_size = dims * (1 + 8 * nx * ny);
+    let mut data: Vec<CComplex<f64>> = Vec::with_capacity(alloc_size as usize);
+    let mut cols: Vec<u32> = Vec::with_capacity(alloc_size as usize);
+    let mut rows: Vec<u32> = Vec::with_capacity(alloc_size as usize);
+    for i in 0..dims as u32 {
+        let orig_state = ind_to_dec.get(&i).unwrap();
+        let ij_elements = ops::ss_pmz_elements(nx, ny, 1.0, &sites,
+                                               &orig_state, &dec_to_ind,
+                                               &hashtable);
+        for (j, entry) in ij_elements.into_iter() {
+            rows.push(i);
+            cols.push(j);
+            data.push(CComplex::from_num_complex(entry));
+        }
+    }
+    CoordMatrix::new(data, cols, rows, dims, dims)
+}
+
 fn _sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
     let mut vec = SiteVector::new((0, 0), nx, ny );
     let xstride = (l % nx) as i32;

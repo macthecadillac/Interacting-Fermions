@@ -308,56 +308,11 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
 
 
 ffi = FFI()
-header = """
-typedef struct {
-    double * ptr;
-    size_t len;
-} vector;
+ldpath = os.path.dirname(__file__)
+with open(os.path.join(ldpath, 'triangular_lattice_ext.h')) as header:
+    ffi.cdef(header.read())
 
-
-typedef struct {
-    vector data;
-    vector col;
-    vector row;
-    unsigned int ncols;
-    unsigned int nrows;
-} coordmatrix;
-
-
-coordmatrix hamiltonian(
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        double,
-        double,
-        double,
-        double,
-        double,
-        double
-);
-
-coordmatrix ss_z(
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        unsigned int
-);
-
-coordmatrix ss_pm(
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        unsigned int
-);
-
-void request_free(coordmatrix);
-"""
-ffi.cdef(header)
-_lib = ffi.dlopen(os.path.join(os.path.dirname(__file__),
-                               "triangular_lattice_ext.so"))
+_lib = ffi.dlopen(os.path.join(ldpath, "triangular_lattice_ext.so"))
 
 
 class CoordMatrix:
@@ -403,6 +358,102 @@ class CoordMatrix:
         """Returns a CSR matrix"""
         return sparse.csr_matrix((self.data, (self.col, self.row)),
                                  shape=(self.nrows, self.ncols))
+
+
+def h_ss_z(Nx, Ny, kx, ky, l):
+    """construct the H_z matrix in the given momentum configuration
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+    l:  int
+
+    Returns
+    --------------------
+    H: CoordMatrix (See above)
+    """
+    mat = _lib.h_ss_z(Nx, Ny, kx, ky, l)
+    coordmat = CoordMatrix(mat)
+    return coordmat
+
+
+def h_ss_pm(Nx, Ny, kx, ky, l):
+    """construct the H_pm matrix in the given momentum configuration
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+    l:  int
+
+    Returns
+    --------------------
+    H: CoordMatrix (See above)
+    """
+    mat = _lib.h_ss_pm(Nx, Ny, kx, ky, l)
+    coordmat = CoordMatrix(mat)
+    return coordmat
+
+
+def h_ss_ppmm(Nx, Ny, kx, ky, l):
+    """construct the H_ppmm matrix in the given momentum configuration
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+    l:  int
+
+    Returns
+    --------------------
+    H: CoordMatrix (See above)
+    """
+    mat = _lib.h_ss_ppmm(Nx, Ny, kx, ky, l)
+    coordmat = CoordMatrix(mat)
+    return coordmat
+
+
+def h_ss_pmz(Nx, Ny, kx, ky, l):
+    """construct the H_pmz matrix in the given momentum configuration
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+    l:  int
+
+    Returns
+    --------------------
+    H: CoordMatrix (See above)
+    """
+    mat = _lib.h_ss_pmz(Nx, Ny, kx, ky, l)
+    coordmat = CoordMatrix(mat)
+    return coordmat
 
 
 def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
