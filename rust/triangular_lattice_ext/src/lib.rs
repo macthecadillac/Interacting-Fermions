@@ -6,7 +6,8 @@ use fnv::FnvHashMap;
 
 extern crate libc;
 
-mod ops;
+mod consv_k;
+mod consv_k_s;
 
 mod common;
 use common::*;
@@ -30,19 +31,19 @@ fn h_elements(i: u32, nx: u32, ny: u32, j_z: f64, j_pm: f64,
               ) -> FnvHashMap<u32, Complex<f64>> {
     let orig_state = ind_to_dec.get(&i).unwrap();
 
-    let hz_1_el = j_z * ops::ss_z_elements(&sites.first, &orig_state);
-    let hz_2_el = j2 * j_z / j_pm * ops::ss_z_elements(&sites.second, &orig_state);
-    let hz_3_el = j3 * j_z / j_pm * ops::ss_z_elements(&sites.third, &orig_state);
-    let hpm_1_el = ops::ss_pm_elements(j_pm, &sites.first, &orig_state,
-                                       &dec_to_ind, &hashtable);
-    let hpm_2_el = ops::ss_pm_elements(j2, &sites.second, &orig_state,
-                                       &dec_to_ind, &hashtable);
-    let hpm_3_el = ops::ss_pm_elements(j3, &sites.third, &orig_state,
-                                       &dec_to_ind, &hashtable);
-    let hppmm_el = ops::ss_ppmm_elements(nx, ny, j_ppmm, &sites.first,
-                                         &orig_state, &dec_to_ind, &hashtable);
-    let hpmz_el = ops::ss_pmz_elements(nx, ny, j_pmz, &sites.first, &orig_state,
-                                       &dec_to_ind, &hashtable);
+    let hz_1_el = j_z * consv_k::ss_z_elements(&sites.first, &orig_state);
+    let hz_2_el = j2 * j_z / j_pm * consv_k::ss_z_elements(&sites.second, &orig_state);
+    let hz_3_el = j3 * j_z / j_pm * consv_k::ss_z_elements(&sites.third, &orig_state);
+    let hpm_1_el = consv_k::ss_pm_elements(j_pm, &sites.first, &orig_state,
+                                           &dec_to_ind, &hashtable);
+    let hpm_2_el = consv_k::ss_pm_elements(j2, &sites.second, &orig_state,
+                                           &dec_to_ind, &hashtable);
+    let hpm_3_el = consv_k::ss_pm_elements(j3, &sites.third, &orig_state,
+                                           &dec_to_ind, &hashtable);
+    let hppmm_el = consv_k::ss_ppmm_elements(nx, ny, j_ppmm, &sites.first,
+                                             &orig_state, &dec_to_ind, &hashtable);
+    let hpmz_el = consv_k::ss_pmz_elements(nx, ny, j_pmz, &sites.first, &orig_state,
+                                           &dec_to_ind, &hashtable);
 
     let mut elements = FnvHashMap::default();
     elements.insert(i, Complex::new(hz_1_el + hz_2_el + hz_3_el, 0.));
@@ -64,7 +65,7 @@ pub extern fn hamiltonian(nx: u32, ny: u32, kx: u32, ky: u32,
                           j_z: f64, j_pm: f64, j_ppmm: f64, j_pmz: f64,
                           j2: f64, j3: f64
                           ) -> CoordMatrix<CComplex<f64>> {
-    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let bfuncs = consv_k::bloch_states(nx, ny, kx, ky);
     let dims = bfuncs.nonzero;
     let hashtable = blochfunc::BlochFuncSet::build_dict(&bfuncs);
     let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
@@ -94,7 +95,7 @@ pub extern fn hamiltonian(nx: u32, ny: u32, kx: u32, ky: u32,
 #[no_mangle]
 pub extern fn h_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let bfuncs = consv_k::bloch_states(nx, ny, kx, ky);
     let dims = bfuncs.nonzero;
     let (ind_to_dec, _) = gen_ind_dec_conv_dicts(&bfuncs);
     let sites = interacting_sites(nx, ny, l);
@@ -104,7 +105,7 @@ pub extern fn h_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     let rows = (0..dims as u32).collect::<Vec<u32>>();
     for i in 0..dims as u32 {
         let orig_state = ind_to_dec.get(&i).unwrap();
-        let i_element = ops::ss_z_elements(&sites, &orig_state);
+        let i_element = consv_k::ss_z_elements(&sites, &orig_state);
         let re = i_element;
         let im = 0.;
         data.push(CComplex { re, im });
@@ -115,7 +116,7 @@ pub extern fn h_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
 #[no_mangle]
 pub extern fn h_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let bfuncs = consv_k::bloch_states(nx, ny, kx, ky);
     let dims = bfuncs.nonzero;
     let hashtable = blochfunc::BlochFuncSet::build_dict(&bfuncs);
     let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
@@ -127,7 +128,7 @@ pub extern fn h_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     let mut rows: Vec<u32> = Vec::with_capacity(alloc_size as usize);
     for i in 0..dims as u32 {
         let orig_state = ind_to_dec.get(&i).unwrap();
-        let ij_elements = ops::ss_pm_elements(1.0, &sites, &orig_state,
+        let ij_elements = consv_k::ss_pm_elements(1.0, &sites, &orig_state,
                                               &dec_to_ind, &hashtable);
         for (j, entry) in ij_elements.into_iter() {
             rows.push(i);
@@ -141,7 +142,7 @@ pub extern fn h_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
 #[no_mangle]
 pub extern fn h_ss_ppmm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let bfuncs = consv_k::bloch_states(nx, ny, kx, ky);
     let dims = bfuncs.nonzero;
     let hashtable = blochfunc::BlochFuncSet::build_dict(&bfuncs);
     let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
@@ -153,7 +154,7 @@ pub extern fn h_ss_ppmm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     let mut rows: Vec<u32> = Vec::with_capacity(alloc_size as usize);
     for i in 0..dims as u32 {
         let orig_state = ind_to_dec.get(&i).unwrap();
-        let ij_elements = ops::ss_ppmm_elements(nx, ny, 1.0, &sites,
+        let ij_elements = consv_k::ss_ppmm_elements(nx, ny, 1.0, &sites,
                                                 &orig_state, &dec_to_ind,
                                                 &hashtable);
         for (j, entry) in ij_elements.into_iter() {
@@ -168,7 +169,7 @@ pub extern fn h_ss_ppmm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
 #[no_mangle]
 pub extern fn h_ss_pmz(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let bfuncs = consv_k::bloch_states(nx, ny, kx, ky);
     let dims = bfuncs.nonzero;
     let hashtable = blochfunc::BlochFuncSet::build_dict(&bfuncs);
     let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
@@ -180,7 +181,7 @@ pub extern fn h_ss_pmz(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     let mut rows: Vec<u32> = Vec::with_capacity(alloc_size as usize);
     for i in 0..dims as u32 {
         let orig_state = ind_to_dec.get(&i).unwrap();
-        let ij_elements = ops::ss_pmz_elements(nx, ny, 1.0, &sites,
+        let ij_elements = consv_k::ss_pmz_elements(nx, ny, 1.0, &sites,
                                                &orig_state, &dec_to_ind,
                                                &hashtable);
         for (j, entry) in ij_elements.into_iter() {
@@ -218,7 +219,7 @@ fn _sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
 #[no_mangle]
 pub extern fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let bfuncs = consv_k::bloch_states(nx, ny, kx, ky);
     let dims = bfuncs.nonzero;
     let (ind_to_dec, _) = gen_ind_dec_conv_dicts(&bfuncs);
     let sites = _sites(nx, ny, l);
@@ -227,7 +228,7 @@ pub extern fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     let mut rows: Vec<u32> = Vec::with_capacity(dims as usize);
     for i in 0..dims as u32 {
         let orig_state = ind_to_dec.get(&i).unwrap();
-        let ij_elements = ops::ss_z_elements(&sites, &orig_state);
+        let ij_elements = consv_k::ss_z_elements(&sites, &orig_state);
         let re = ij_elements;
         let im = 0.;
         data.push(CComplex { re, im });
@@ -240,7 +241,7 @@ pub extern fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
 #[no_mangle]
 pub extern fn ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    let bfuncs = bloch_states(nx, ny, kx, ky);
+    let bfuncs = consv_k::bloch_states(nx, ny, kx, ky);
     let dims = bfuncs.nonzero;
     let hashtable = blochfunc::BlochFuncSet::build_dict(&bfuncs);
     let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
@@ -251,7 +252,7 @@ pub extern fn ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     let mut rows: Vec<u32> = Vec::with_capacity(dims as usize);
     for i in 0..dims as u32 {
         let orig_state = ind_to_dec.get(&i).unwrap();
-        let ij_elements = ops::ss_pm_elements(0.5, &sites, &orig_state,
+        let ij_elements = consv_k::ss_pm_elements(0.5, &sites, &orig_state,
                                               &dec_to_ind, &hashtable);
         for (j, entry) in ij_elements.into_iter() {
             rows.push(i);

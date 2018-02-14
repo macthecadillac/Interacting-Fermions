@@ -3,7 +3,6 @@ use libc::size_t;
 use num_complex::Complex;
 use fnv::FnvHashMap;
 
-use super::PI;
 use sitevector::SiteVector;
 use blochfunc::{BlochFunc, BlochFuncSet};
 
@@ -147,62 +146,6 @@ pub fn interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
     site1.into_iter().map(|x| 2_u32.pow(x)).collect::<Vec<_>>(),
     site2.into_iter().map(|x| 2_u32.pow(x)).collect::<Vec<_>>(),
     )
-}
-
-pub fn bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
-    let n = nx * ny;
-    let mut sieve = vec![true; 2_usize.pow(n)];
-    let mut bfuncs: Vec<BlochFunc> = Vec::new();
-    let phase = |i, j| {
-        let r = 1.;
-        let ang1 = 2. * PI * (i * kx) as f64 / nx as f64;
-        let ang2 = 2. * PI * (j * ky) as f64 / ny as f64;
-        Complex::from_polar(&r, &(ang1 + ang2))
-    };
-
-    for dec in 0..2_usize.pow(n) {
-        if sieve[dec]
-        {   // if the corresponding entry of dec in "sieve" is not false,
-            // we find all translations of dec and put them in a BlochFunc
-            // then mark all corresponding entries in "sieve" as false.
-
-            // "decs" is a hashtable that holds vectors whose entries
-            // correspond to Bloch function constituent configurations which
-            // are mapped to single decimals that represent the leading states.
-            let mut decs: FnvHashMap<u32, Complex<f64>> = FnvHashMap::default();
-            // "new_dec" represents the configuration we are currently iterating
-            // over.
-            let mut new_dec = dec as u32;
-            for j in 0..ny {
-                for i in 0..nx {
-                    sieve[new_dec as usize] = false;
-                    let new_p = match decs.get(&new_dec) {
-                        Some(&p) => p + phase(i, j),
-                        None     => phase(i, j)
-                    };
-                    decs.insert(new_dec, new_p);
-                    new_dec = translate_x(new_dec, nx, ny);
-                }
-                new_dec = translate_y(new_dec, nx, ny);
-            }
-
-            let lead = dec as u32;
-            let norm = decs.values()
-                .into_iter()
-                .map(|&x| x.norm_sqr())
-                .sum::<f64>()
-                .sqrt();
-
-            if norm > 1e-8 {
-                let mut bfunc = BlochFunc { lead, decs, norm };
-                bfuncs.push(bfunc);
-            }
-        }
-    }
-
-    let mut table = BlochFuncSet::create(bfuncs);
-    table.sort();
-    table
 }
 
 pub fn find_leading_state<'a>(dec: u32,
