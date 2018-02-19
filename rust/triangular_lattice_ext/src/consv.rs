@@ -147,8 +147,8 @@ pub mod ks {
     pub fn compose(l: List<i32>) -> u64 {
         fn aux(l: List<i32>, acc: u64) -> u64 {
             match l {
-                List::Nil          => acc,
-                List::Node(hd, tl) => aux(*tl, acc + 2_u64.pow(hd as u32))
+                Nil          => acc,
+                Node(hd, tl) => aux(*tl, acc + 2_u64.pow(hd as u32))
             }
         };
         aux(l, 0)
@@ -163,24 +163,24 @@ pub mod ks {
         let n = n.to_biguint().unwrap();
         let c = c.to_biguint().unwrap();
         let ncr = fac(n.clone()) / (fac(c.clone()) * fac(n.clone() - c.clone()));
-        ncr.to_bytes_le().iter()
-            .enumerate()
-            .map(|(i, &x)| x as u64 * 2_u64.pow(i as u32 * 8))
-            .sum()
+        ncr.to_bytes_le()
+           .iter()
+           .enumerate()
+           .map(|(i, &x)| x as u64 * 2_u64.pow(i as u32 * 8))
+           .sum()
     }
 
     pub fn sz_basis(n: u32, nup: u32) -> Vec<u64> {
-        let mut l = (0..nup as i32).fold(List::Nil, |acc, x| acc.push(x))
+        let mut l = (0..nup as i32).fold(Nil, |acc, x| acc.push(x))
                                    .rev();
         let l_size = choose(n, nup);
-        let mut l_vec: Vec<List<i32>> = Vec::with_capacity(l_size as usize);
+        let mut sz_basis_states: Vec<u64> = Vec::with_capacity(l_size as usize);
         for _ in 0..l_size {
             l = permute(l, n - 1);
-            l_vec.push(l.clone());
+            let i = compose(l.clone());
+            sz_basis_states.push(i);
         }
-        l_vec.into_iter()
-             .map(|v| compose(v))
-             .collect::<Vec<u64>>()
+        sz_basis_states
     }
 
     pub fn bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32,
