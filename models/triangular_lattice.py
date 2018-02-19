@@ -307,6 +307,9 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
             self.J_ppmm * H_ppmm_new + self.J_pmz * H_pmz_new
 
 
+##########################################################
+### FFI wrapper code for functions implemented in Rust ###
+##########################################################
 ffi = FFI()
 ldpath = os.path.dirname(__file__)
 with open(os.path.join(ldpath, 'triangular_lattice_ext.h')) as header:
@@ -317,7 +320,7 @@ _lib = ffi.dlopen(os.path.join(ldpath, "triangular_lattice_ext.so"))
 
 class CoordMatrix:
     """A class that encapsulates the matrix and provides methods that would
-    help memoery management over the FFI
+    help memoery management across the FFI boundary
     """
 
     def __init__(self, mat):
@@ -346,7 +349,7 @@ class CoordMatrix:
         self.data = None
         self.col = None
         self.row = None
-        _lib.request_free(self.__obj)
+        _lib.request_free(self.__obj)   # deallocates Rust object
         self.__obj = None
 
     def to_csc(self):
@@ -360,7 +363,7 @@ class CoordMatrix:
                                  shape=(self.nrows, self.ncols))
 
 
-def h_ss_z(Nx, Ny, kx, ky, l):
+def h_ss_z_consv_k(Nx, Ny, kx, ky, l):
     """construct the H_z matrix in the given momentum configuration
 
     Parameters
@@ -377,14 +380,15 @@ def h_ss_z(Nx, Ny, kx, ky, l):
 
     Returns
     --------------------
-    H: CoordMatrix (See above)
+    H: scipy.sparse.csr_matrix
     """
-    mat = _lib.h_ss_z(Nx, Ny, kx, ky, l)
-    coordmat = CoordMatrix(mat)
-    return coordmat
+    mat = _lib.k_h_ss_z(Nx, Ny, kx, ky, l)
+    with CoordMatrix(mat) as coordmat:
+        H = coordmat.to_csr()
+    return H
 
 
-def h_ss_pm(Nx, Ny, kx, ky, l):
+def h_ss_pm_consv_k(Nx, Ny, kx, ky, l):
     """construct the H_pm matrix in the given momentum configuration
 
     Parameters
@@ -401,14 +405,15 @@ def h_ss_pm(Nx, Ny, kx, ky, l):
 
     Returns
     --------------------
-    H: CoordMatrix (See above)
+    H: scipy.sparse.csr_matrix
     """
-    mat = _lib.h_ss_pm(Nx, Ny, kx, ky, l)
-    coordmat = CoordMatrix(mat)
-    return coordmat
+    mat = _lib.k_h_ss_pm(Nx, Ny, kx, ky, l)
+    with CoordMatrix(mat) as coordmat:
+        H = coordmat.to_csr()
+    return H
 
 
-def h_ss_ppmm(Nx, Ny, kx, ky, l):
+def h_ss_ppmm_consv_k(Nx, Ny, kx, ky, l):
     """construct the H_ppmm matrix in the given momentum configuration
 
     Parameters
@@ -425,14 +430,15 @@ def h_ss_ppmm(Nx, Ny, kx, ky, l):
 
     Returns
     --------------------
-    H: CoordMatrix (See above)
+    H: scipy.sparse.csr_matrix
     """
-    mat = _lib.h_ss_ppmm(Nx, Ny, kx, ky, l)
-    coordmat = CoordMatrix(mat)
-    return coordmat
+    mat = _lib.k_h_ss_ppmm(Nx, Ny, kx, ky, l)
+    with CoordMatrix(mat) as coordmat:
+        H = coordmat.to_csr()
+    return H
 
 
-def h_ss_pmz(Nx, Ny, kx, ky, l):
+def h_ss_pmz_consv_k(Nx, Ny, kx, ky, l):
     """construct the H_pmz matrix in the given momentum configuration
 
     Parameters
@@ -449,15 +455,16 @@ def h_ss_pmz(Nx, Ny, kx, ky, l):
 
     Returns
     --------------------
-    H: CoordMatrix (See above)
+    H: scipy.sparse.csr_matrix
     """
-    mat = _lib.h_ss_pmz(Nx, Ny, kx, ky, l)
-    coordmat = CoordMatrix(mat)
-    return coordmat
+    mat = _lib.k_h_ss_pmz(Nx, Ny, kx, ky, l)
+    with CoordMatrix(mat) as coordmat:
+        H = coordmat.to_csr()
+    return H
 
 
-def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, J3=0):
-    """construct the full Hamiltonian matrix in the given momentum configuration
+def h_ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
+    """construct the H_z matrix in the given momentum configuration
 
     Parameters
     --------------------
@@ -469,32 +476,48 @@ def hamiltonian_consv_k(Nx, Ny, kx, ky, J_pm=0, J_z=0, J_ppmm=0, J_pmz=0, J2=0, 
         the x-component of lattice momentum * Nx / 2π in a (-π, +π]
         Brillouin zone
     ky: int
-        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
-        Brillouin zone
-    J_pm: int/float
-        the J+- parameter (defaults to 0)
-    J_z: int/float
-        the Jz parameter (defaults to 0)
-    J_ppmm: int/float
-        the J++-- parameter (defaults to 0)
-    J_pmz: int/float
-        the J+-z parameter (defaults to 0)
-    J2: int/float
-        the J2 parameter (defaults to 0)
-    J3: int/float
-        the J3 parameter (defaults to 0)
+    nup: int
+        the total number of sites with a spin-up
+    l:  int
 
     Returns
     --------------------
-    H: CoordMatrix (See above)
+    H: scipy.sparse.csr_matrix
     """
+    mat = _lib.ks_h_ss_z(Nx, Ny, kx, ky, nup, l)
+    with CoordMatrix(mat) as coordmat:
+        H = coordmat.to_csr()
+    return H
 
-    mat = _lib.hamiltonian(Nx, Ny, kx, ky, J_z, J_pm, J_ppmm, J_pmz, J2, J3)
-    coordmat = CoordMatrix(mat)
-    return coordmat
+
+def h_ss_pm_consv_k_s(Nx, Ny, kx, ky, nup, l):
+    """construct the H_pm matrix in the given momentum configuration
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+    nup: int
+        the total number of sites with a spin-up
+    l:  int
+
+    Returns
+    --------------------
+    H: scipy.sparse.csr_matrix
+    """
+    mat = _lib.ks_h_ss_pm(Nx, Ny, kx, ky, nup, l)
+    with CoordMatrix(mat) as coordmat:
+        H = coordmat.to_csr()
+    return H
 
 
-def ss_z(Nx, Ny, kx, ky, l):
+def ss_z_consv_k(Nx, Ny, kx, ky, l):
     """construct the Σsz_i * sz_j operators with the given separation
     with translational symmetry taken into account
 
@@ -515,14 +538,15 @@ def ss_z(Nx, Ny, kx, ky, l):
 
     Returns
     --------------------
-    ss_z: CoordMatrix (See above)
+    ss_z: scipy.sparse.csr_matrix
     """
-    mat = _lib.ss_z(Nx, Ny, kx, ky, l)
-    coordmat = CoordMatrix(mat)
-    return coordmat
+    mat = _lib.k_ss_z(Nx, Ny, kx, ky, l)
+    with CoordMatrix(mat) as coordmat:
+        op = coordmat.to_csr()
+    return op
 
 
-def ss_pm(Nx, Ny, kx, ky, l):
+def ss_pm_consv_k(Nx, Ny, kx, ky, l):
     """construct the Σsz_i * sz_j operators with the given separation
     with translational symmetry taken into account
 
@@ -543,11 +567,74 @@ def ss_pm(Nx, Ny, kx, ky, l):
 
     Returns
     --------------------
-    ss_z: CoordMatrix (See above)
+    ss_pm: scipy.sparse.csr_matrix
     """
-    mat = _lib.ss_pm(Nx, Ny, kx, ky, l)
-    coordmat = CoordMatrix(mat)
-    return coordmat
+    mat = _lib.k_ss_pm(Nx, Ny, kx, ky, l)
+    with CoordMatrix(mat) as coordmat:
+        op = coordmat.to_csr()
+    return op
+
+
+def ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
+    """construct the Σsz_i * sz_j operators with the given separation
+    with translational symmetry taken into account
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    nup: int
+        the total number of sites with a spin-up
+    l:  int
+        the separation between sites: |i - j|
+
+    Returns
+    --------------------
+    ss_z: scipy.sparse.csr_matrix
+    """
+    mat = _lib.ks_ss_z(Nx, Ny, kx, ky, nup, l)
+    with CoordMatrix(mat) as coordmat:
+        op = coordmat.to_csr()
+    return op
+
+
+def ss_pm_consv_k_s(Nx, Ny, kx, ky, nup, l):
+    """construct the Σsz_i * sz_j operators with the given separation
+    with translational symmetry taken into account
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        Brillouin zone
+    nup: int
+        the total number of sites with a spin-up
+    l:  int
+        the separation between sites: |i - j|
+
+    Returns
+    --------------------
+    ss_pm: scipy.sparse.csr_matrix
+    """
+    mat = _lib.ks_ss_pm(Nx, Ny, kx, ky, nup, l)
+    with CoordMatrix(mat) as coordmat:
+        op = coordmat.to_csr()
+    return op
 
 
 def min_necessary_ks(Nx, Ny):

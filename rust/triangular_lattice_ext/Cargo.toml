@@ -10,6 +10,8 @@ crate-type = ["dylib"]
 [dependencies]
 libc = "0.2"
 num-complex = "0.1"
+num-bigint = "0.1"
+num-traits = "0.1"
 fnv = "1.0"
 
 [profile.release]

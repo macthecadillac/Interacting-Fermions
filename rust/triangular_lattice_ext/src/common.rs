@@ -64,38 +64,54 @@ impl<T> CoordMatrix<T> {
     }
 }
 
-pub struct InteractingSites {
-    pub first: (Vec<u32>, Vec<u32>),
-    pub second: (Vec<u32>, Vec<u32>),
-    pub third: (Vec<u32>, Vec<u32>)
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum List<T> {
+    Nil,
+    Node(T, Box<List<T>>)
 }
 
-pub fn translate_x(dec: u32, nx: u32, ny: u32) -> u32 {
+impl<T> List<T> {
+    pub fn push(self, i: T) -> List<T> {
+        List::Node(i, Box::new(self))
+    }
+    
+    pub fn rev(self: List<T>) -> List<T> {
+        fn aux<T>(l: List<T>, acc: List<T>) -> List<T> {
+            match l {
+                List::Nil          => acc,
+                List::Node(hd, tl) => aux(*tl, acc.push(hd))
+            }
+        };
+        aux(self, List::Nil)
+    }
+}
+
+pub fn translate_x(dec: u64, nx: u32, ny: u32) -> u64 {
     let n = (0..ny).map(|x| x * nx).collect::<Vec<u32>>();
     let s = n.iter()
-        .map(|&x| dec % 2_u32.pow(x + nx) / 2_u32.pow(x))
-        .map(|x| (x * 2_u32) % 2_u32.pow(nx) + x / 2_u32.pow(nx - 1));
+        .map(|&x| dec % 2_u64.pow(x + nx) / 2_u64.pow(x))
+        .map(|x| (x * 2_u64) % 2_u64.pow(nx) + x / 2_u64.pow(nx - 1));
 
-    n.iter().map(|&x| 2_u32.pow(x))
+    n.iter().map(|&x| 2_u64.pow(x))
         .zip(s)
         .map(|(a, b)| a * b)  // basically a dot product here
         .sum()
 }
 
-pub fn translate_y(dec: u32, nx: u32, ny: u32) -> u32 {
-    let xdim = 2_u32.pow(nx);
-    let pred_totdim = 2_u32.pow(nx * (ny - 1));
+pub fn translate_y(dec: u64, nx: u32, ny: u32) -> u64 {
+    let xdim = 2_u64.pow(nx);
+    let pred_totdim = 2_u64.pow(nx * (ny - 1));
     let tail = dec % xdim;
     dec / xdim + tail * pred_totdim
 }
 
-pub fn exchange_spin_flips(dec: u32, s1: u32, s2: u32) -> (bool, bool) {
+pub fn exchange_spin_flips(dec: u64, s1: u64, s2: u64) -> (bool, bool) {
     let updown = (dec | s1 == dec) && (dec | s2 != dec);
     let downup = (dec | s1 != dec) && (dec | s2 == dec);
     (updown, downup)
 }
 
-pub fn repeated_spins(dec: u32, s1: u32, s2: u32) -> (bool, bool) {
+pub fn repeated_spins(dec: u64, s1: u64, s2: u64) -> (bool, bool) {
     let upup = (dec | s1 == dec) && (dec | s2 == dec);
     let downdown = (dec | s1 != dec) && (dec | s2 != dec);
     (upup, downdown)
@@ -122,7 +138,7 @@ pub fn generate_bonds(nx: u32, ny: u32) -> Vec<Vec<Vec<SiteVector>>> {
     bonds_by_range
 }
 
-pub fn gamma(nx: u32, ny: u32, s1: u32, s2: u32) -> Complex<f64> {
+pub fn gamma(nx: u32, ny: u32, s1: u64, s2: u64) -> Complex<f64> {
     let m = (s1 as f64).log2().round() as u32;
     let n = (s2 as f64).log2().round() as u32;
     let vec1 = SiteVector::from_index(m, nx, ny);
@@ -132,7 +148,7 @@ pub fn gamma(nx: u32, ny: u32, s1: u32, s2: u32) -> Complex<f64> {
     Complex::from_polar(&1.0, &ang)
 }
 
-pub fn interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
+pub fn interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u64>, Vec<u64>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
     let bonds_by_range = generate_bonds(nx, ny);
@@ -143,13 +159,36 @@ pub fn interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u32>, Vec<u32>) {
     }
 
     (
-    site1.into_iter().map(|x| 2_u32.pow(x)).collect::<Vec<_>>(),
-    site2.into_iter().map(|x| 2_u32.pow(x)).collect::<Vec<_>>(),
+    site1.into_iter().map(|x| 2_u64.pow(x)).collect::<Vec<_>>(),
+    site2.into_iter().map(|x| 2_u64.pow(x)).collect::<Vec<_>>(),
     )
 }
 
-pub fn find_leading_state<'a>(dec: u32,
-                              hashtable: &'a FnvHashMap<&u32, &BlochFunc>
+pub fn all_sites(nx: u32, ny: u32, l: u32) -> (Vec<u64>, Vec<u64>) {
+    let mut vec = SiteVector::new((0, 0), nx, ny );
+    let xstride = (l % nx) as i32;
+    let ystride = (l / nx) as i32;
+    let mut site1 = Vec::new();
+    let mut site2 = Vec::new();
+    for _ in 0..ny {
+        for _ in 0..nx {
+            let s1 = vec.lattice_index();
+            let s2 = vec.xhop(xstride).yhop(ystride).lattice_index();
+            site1.push(s1);
+            site2.push(s2);
+            vec = vec.xhop(1);
+        }
+        vec = vec.yhop(1);
+    }
+
+    (
+    site1.into_iter().map(|s| 2_u64.pow(s)).collect::<Vec<u64>>(),
+    site2.into_iter().map(|s| 2_u64.pow(s)).collect::<Vec<u64>>()
+    )
+}
+
+pub fn find_leading_state<'a>(dec: u64,
+                              hashtable: &'a FnvHashMap<&u64, &BlochFunc>
                               ) -> Option<(&'a BlochFunc, Complex<f64>)> {
 
     match hashtable.get(&dec) {
@@ -166,7 +205,7 @@ pub fn find_leading_state<'a>(dec: u32,
 }
 
 pub fn gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
-    -> (FnvHashMap<u32, &'a BlochFunc>, FnvHashMap<u32, u32>) {
+    -> (FnvHashMap<u32, &'a BlochFunc>, FnvHashMap<u64, u32>) {
     let dec = bfuncs.iter()
         .map(|x| x.lead)
         .collect::<Vec<_>>();
@@ -176,7 +215,7 @@ pub fn gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
     // build the hashtables
     let dec_to_ind = dec.into_iter()
         .zip(inds.clone())
-        .collect::<FnvHashMap<u32, u32>>();
+        .collect::<FnvHashMap<u64, u32>>();
     let ind_to_dec = inds.into_iter()
         .zip(bfuncs.iter())
         .collect::<FnvHashMap<u32, &BlochFunc>>();

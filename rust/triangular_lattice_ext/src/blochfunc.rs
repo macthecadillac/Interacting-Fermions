@@ -4,8 +4,8 @@ use num_complex::Complex;
 
 #[derive(Clone, Debug)]
 pub struct BlochFunc {
-    pub lead: u32,
-    pub decs: FnvHashMap<u32, Complex<f64>>,
+    pub lead: u64,
+    pub decs: FnvHashMap<u64, Complex<f64>>,
     pub norm: f64,
 }
 
@@ -33,13 +33,15 @@ impl Eq for BlochFunc {}
 pub struct BlochFuncSet {
     pub data: Vec<BlochFunc>,
     pub nonzero: u32,
+    pub nx: u32,
+    pub ny: u32,
 }
 
 impl<'a> BlochFuncSet {
-    pub fn create(bfuncs: Vec<BlochFunc>) -> BlochFuncSet {
+    pub fn create(nx: u32, ny: u32, bfuncs: Vec<BlochFunc>) -> BlochFuncSet {
         let data = bfuncs;
         let nonzero = data.len() as u32;
-        BlochFuncSet{ data, nonzero }
+        BlochFuncSet{ data, nonzero, nx, ny }
     }
 
     pub fn sort(&mut self) {
@@ -50,7 +52,7 @@ impl<'a> BlochFuncSet {
         BlochFuncSetIterator::new(&self.data)
     }
 
-    pub fn build_dict(bfuncs: &BlochFuncSet) -> FnvHashMap<&u32, &BlochFunc> {
+    pub fn build_dict(bfuncs: &BlochFuncSet) -> FnvHashMap<&u64, &BlochFunc> {
         let mut hashtable = FnvHashMap::default();
         for bfunc in bfuncs.data.iter() {
             for dec in bfunc.decs.keys() {

@@ -3,7 +3,6 @@ typedef struct {
     size_t len;
 } vector;
 
-
 typedef struct {
     vector data;
     vector col;
@@ -12,7 +11,7 @@ typedef struct {
     unsigned int nrows;
 } coordmatrix;
 
-coordmatrix h_ss_z(
+coordmatrix k_h_ss_z(
         unsigned int,
         unsigned int,
         unsigned int,
@@ -20,7 +19,7 @@ coordmatrix h_ss_z(
         unsigned int
 );
 
-coordmatrix h_ss_pm(
+coordmatrix k_h_ss_pm(
         unsigned int,
         unsigned int,
         unsigned int,
@@ -28,7 +27,7 @@ coordmatrix h_ss_pm(
         unsigned int
 );
 
-coordmatrix h_ss_ppmm(
+coordmatrix k_h_ss_ppmm(
         unsigned int,
         unsigned int,
         unsigned int,
@@ -36,7 +35,7 @@ coordmatrix h_ss_ppmm(
         unsigned int
 );
 
-coordmatrix h_ss_pmz(
+coordmatrix k_h_ss_pmz(
         unsigned int,
         unsigned int,
         unsigned int,
@@ -44,20 +43,7 @@ coordmatrix h_ss_pmz(
         unsigned int
 );
 
-coordmatrix hamiltonian(
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        unsigned int,
-        double,
-        double,
-        double,
-        double,
-        double,
-        double
-);
-
-coordmatrix ss_z(
+coordmatrix k_ss_z(
         unsigned int,
         unsigned int,
         unsigned int,
@@ -65,7 +51,43 @@ coordmatrix ss_z(
         unsigned int
 );
 
-coordmatrix ss_pm(
+coordmatrix k_ss_pm(
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int
+);
+
+coordmatrix ks_h_ss_z(
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int
+);
+
+coordmatrix ks_h_ss_pm(
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int
+);
+
+coordmatrix ks_ss_z(
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int
+);
+
+coordmatrix ks_ss_pm(
+        unsigned int,
         unsigned int,
         unsigned int,
         unsigned int,
