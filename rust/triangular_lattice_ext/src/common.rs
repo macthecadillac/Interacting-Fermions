@@ -5,6 +5,7 @@ use fnv::FnvHashMap;
 
 use sitevector::SiteVector;
 use blochfunc::{BlochFunc, BlochFuncSet};
+use super::POW2;
 
 // c compatible complex type for export to numpy at the end
 #[repr(C)]
@@ -64,43 +65,21 @@ impl<T> CoordMatrix<T> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum List<T> {
-    Nil,
-    Node(T, Box<List<T>>)
-}
-
-impl<T> List<T> {
-    pub fn push(self, i: T) -> List<T> {
-        List::Node(i, Box::new(self))
-    }
-    
-    pub fn rev(self: List<T>) -> List<T> {
-        fn aux<T>(l: List<T>, acc: List<T>) -> List<T> {
-            match l {
-                List::Nil          => acc,
-                List::Node(hd, tl) => aux(*tl, acc.push(hd))
-            }
-        };
-        aux(self, List::Nil)
-    }
-}
-
 pub fn translate_x(dec: u64, nx: u32, ny: u32) -> u64 {
     let n = (0..ny).map(|x| x * nx).collect::<Vec<u32>>();
     let s = n.iter()
-        .map(|&x| dec % 2_u64.pow(x + nx) / 2_u64.pow(x))
-        .map(|x| (x * 2_u64) % 2_u64.pow(nx) + x / 2_u64.pow(nx - 1));
+        .map(|&x| dec % POW2[(x + nx) as usize] / POW2[x as usize])
+        .map(|x| (x * 2_u64) % POW2[nx as usize] + x / POW2[nx as usize - 1]);
 
-    n.iter().map(|&x| 2_u64.pow(x))
+    n.iter().map(|&x| POW2[x as usize])
         .zip(s)
         .map(|(a, b)| a * b)  // basically a dot product here
         .sum()
 }
 
 pub fn translate_y(dec: u64, nx: u32, ny: u32) -> u64 {
-    let xdim = 2_u64.pow(nx);
-    let pred_totdim = 2_u64.pow(nx * (ny - 1));
+    let xdim = POW2[nx as usize];
+    let pred_totdim = POW2[nx as usize * (ny - 1) as usize];
     let tail = dec % xdim;
     dec / xdim + tail * pred_totdim
 }

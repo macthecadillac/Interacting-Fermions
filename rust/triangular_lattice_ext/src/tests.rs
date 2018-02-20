@@ -76,28 +76,26 @@ fn choose() {
 
 #[test]
 fn permute() {
-    use common::List;
-    let l = [6, 5, 4, 3].iter().fold(List::Nil, |acc, &x| acc.push(x));
-    let ans = [6, 5, 4, 2].iter().fold(List::Nil, |acc, &x| acc.push(x));
+    let l = vec![3, 4, 5, 6];
+    let ans = vec![2, 4, 5, 6];
     assert_eq!(consv::ks::permute(l, 7), ans);
 
-    let l = [6, 5, 4, 1, 0].iter().fold(List::Nil, |acc, &x| acc.push(x));
-    let ans = [6, 5, 3, 2, 1].iter().fold(List::Nil, |acc, &x| acc.push(x));
+    let l = vec![0, 1, 4, 5, 6];
+    let ans = vec![1, 2, 3, 5, 6];
     assert_eq!(consv::ks::permute(l, 9), ans);
 
-    let l = [2, 1, 0].iter().fold(List::Nil, |acc, &x| acc.push(x));
-    let ans = [5, 4, 3].iter().fold(List::Nil, |acc, &x| acc.push(x));
+    let l = vec![0, 1, 2];
+    let ans = vec![3, 4, 5];
     assert_eq!(consv::ks::permute(l, 5), ans);
 }
 
 #[test]
 fn compose() {
-    use common::List;
-    let l = [0, 1, 2, 3].iter().fold(List::Nil, |acc, &x| acc.push(x));
-    assert_eq!(consv::ks::compose(l), 15);
+    let l = vec![0, 1, 2, 3];
+    assert_eq!(consv::ks::compose(&l), 15);
 
-    let l = [1, 3, 5].iter().fold(List::Nil, |acc, &x| acc.push(x));
-    assert_eq!(consv::ks::compose(l), 42);
+    let l = vec![1, 3, 5];
+    assert_eq!(consv::ks::compose(&l), 42);
 }
 
 #[test]

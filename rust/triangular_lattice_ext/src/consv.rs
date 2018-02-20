@@ -6,8 +6,7 @@ pub mod k {
     use blochfunc::{BlochFunc, BlochFuncSet};
     use common::*;
     use ops;
-
-    const PI: f64 = 3.14159265358979323846;
+    use super::super::PI;
 
     pub fn bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
         let n = nx * ny;
@@ -116,42 +115,34 @@ pub mod ks {
     use fnv::FnvHashMap;
 
     use common::*;
-    use common::List::{Nil, Node};
     use ops;
     use blochfunc::{BlochFunc, BlochFuncSet};
+    use super::super::PI;
+    use super::super::POW2;
 
-    const PI: f64 = 3.14159265358979323846;
-
-    pub fn permute(l: List<i32>, n: u32) -> List<i32> {
-        fn retr(apdx: List<i32>, acc: List<i32>, n: i32) -> List<i32> {
-            match (apdx, acc.clone()) {
-                (Nil, Node(_, _)) | (Nil, Nil) => acc,
-                (Node(_, rmdr), Nil)           => retr(*rmdr, Nil.push(n), n),
-                (Node(_, rmdr), Node(hd, _))   => retr(*rmdr, acc.push(hd - 1), n)
-            }
-        };
-
-        fn aux(apdx: List<i32>, l: List<i32>, prev: i32, n: i32) -> List<i32> {
-            match l {
-                Nil          => retr(apdx, l, n),
-                Node(hd, tl) => {
-                    if hd - prev == 1 { aux(apdx.push(hd), *tl, hd, n) }
-                    else { retr(apdx, tl.push(hd - 1), n) }
+    pub fn permute(mut v: Vec<i32>, lmax: u32) -> Vec<i32> {
+        if v[0] > 0 { v[0] -= 1; v }
+        else {
+            let mut i = 1;
+            while i < v.len() {
+                if v[i] - v[i - 1] > 1 {
+                    v[i] -= 1;
+                    break
                 }
+                else { i += 1; }
             }
-        };
-
-        aux(Nil, l, -1, n as i32)
+            let mut j = i;
+            if i == v.len() { v[i - 1] = lmax as i32; j -= 1; }
+            while j > 0 {
+                v[j - 1] = v[j] - 1;
+                j -= 1;
+            }
+            v
+        }
     }
 
-    pub fn compose(l: List<i32>) -> u64 {
-        fn aux(l: List<i32>, acc: u64) -> u64 {
-            match l {
-                Nil          => acc,
-                Node(hd, tl) => aux(*tl, acc + 2_u64.pow(hd as u32))
-            }
-        };
-        aux(l, 0)
+    pub fn compose(v: &Vec<i32>) -> u64 {
+        v.iter().fold(0, |acc, &x| POW2[x as usize] + acc)
     }
 
     pub fn fac(n: BigUint) -> BigUint {
@@ -166,18 +157,17 @@ pub mod ks {
         ncr.to_bytes_le()
            .iter()
            .enumerate()
-           .map(|(i, &x)| x as u64 * 2_u64.pow(i as u32 * 8))
+           .map(|(i, &x)| x as u64 * POW2[i as usize * 8])
            .sum()
     }
 
     pub fn sz_basis(n: u32, nup: u32) -> Vec<u64> {
-        let mut l = (0..nup as i32).fold(Nil, |acc, x| acc.push(x))
-                                   .rev();
+        let mut l = (0..nup as i32).collect::<Vec<i32>>();
         let l_size = choose(n, nup);
         let mut sz_basis_states: Vec<u64> = Vec::with_capacity(l_size as usize);
         for _ in 0..l_size {
             l = permute(l, n - 1);
-            let i = compose(l.clone());
+            let i = compose(&l);
             sz_basis_states.push(i);
         }
         sz_basis_states
@@ -249,6 +239,7 @@ pub mod ks {
 
         let mut table = BlochFuncSet::create(nx, ny, bfuncs);
         table.sort();
+        println!("Bloch table ready!");
         table
     }
 

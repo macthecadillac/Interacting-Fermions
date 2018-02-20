@@ -1,4 +1,4 @@
-const PI: f64 = 3.14159265358979323846;
+use super::PI;
 
 #[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub struct SiteVector {
