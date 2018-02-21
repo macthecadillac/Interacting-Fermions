@@ -239,7 +239,6 @@ pub mod ks {
 
         let mut table = BlochFuncSet::create(nx, ny, bfuncs);
         table.sort();
-        println!("Bloch table ready!");
         table
     }
 
