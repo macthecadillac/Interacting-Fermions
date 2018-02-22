@@ -17,3 +17,4 @@ fnv = "1.0"
 [profile.release]
 # debug = true
 opt-level = 3
+codegen-units = 1
