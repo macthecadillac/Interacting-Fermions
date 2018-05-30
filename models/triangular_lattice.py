@@ -388,8 +388,8 @@ def h_ss_z_consv_k(Nx, Ny, kx, ky, l):
     return H
 
 
-def h_ss_pm_consv_k(Nx, Ny, kx, ky, l):
-    """construct the H_pm matrix in the given momentum configuration
+def h_ss_xy_consv_k(Nx, Ny, kx, ky, l):
+    """construct the H_xy matrix in the given momentum configuration
 
     Parameters
     --------------------
@@ -407,7 +407,7 @@ def h_ss_pm_consv_k(Nx, Ny, kx, ky, l):
     --------------------
     H: scipy.sparse.csr_matrix
     """
-    mat = _lib.k_h_ss_pm(Nx, Ny, kx, ky, l)
+    mat = _lib.k_h_ss_xy(Nx, Ny, kx, ky, l)
     with CoordMatrix(mat) as coordmat:
         H = coordmat.to_csr()
     return H
@@ -490,8 +490,8 @@ def h_ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
     return H
 
 
-def h_ss_pm_consv_k_s(Nx, Ny, kx, ky, nup, l):
-    """construct the H_pm matrix in the given momentum configuration
+def h_ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
+    """construct the H_xy matrix in the given momentum configuration
 
     Parameters
     --------------------
@@ -511,7 +511,7 @@ def h_ss_pm_consv_k_s(Nx, Ny, kx, ky, nup, l):
     --------------------
     H: scipy.sparse.csr_matrix
     """
-    mat = _lib.ks_h_ss_pm(Nx, Ny, kx, ky, nup, l)
+    mat = _lib.ks_h_ss_xy(Nx, Ny, kx, ky, nup, l)
     with CoordMatrix(mat) as coordmat:
         H = coordmat.to_csr()
     return H
@@ -546,9 +546,9 @@ def ss_z_consv_k(Nx, Ny, kx, ky, l):
     return op
 
 
-def ss_pm_consv_k(Nx, Ny, kx, ky, l):
-    """construct the Σsz_i * sz_j operators with the given separation
-    with translational symmetry taken into account
+def ss_xy_consv_k(Nx, Ny, kx, ky, l):
+    """construct the Σ(sx_i * sx_j + sy_i * sy_j) operators with the given
+    separation with translational symmetry taken into account
 
     Parameters
     --------------------
@@ -567,9 +567,9 @@ def ss_pm_consv_k(Nx, Ny, kx, ky, l):
 
     Returns
     --------------------
-    ss_pm: scipy.sparse.csr_matrix
+    ss_xy: scipy.sparse.csr_matrix
     """
-    mat = _lib.k_ss_pm(Nx, Ny, kx, ky, l)
+    mat = _lib.k_ss_xy(Nx, Ny, kx, ky, l)
     with CoordMatrix(mat) as coordmat:
         op = coordmat.to_csr()
     return op
@@ -606,9 +606,9 @@ def ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
     return op
 
 
-def ss_pm_consv_k_s(Nx, Ny, kx, ky, nup, l):
-    """construct the Σsz_i * sz_j operators with the given separation
-    with translational symmetry taken into account
+def ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
+    """construct the Σ(sx_i * sx_j + sy_i * sy_j) operators with the given
+    separation with translational symmetry taken into account
 
     Parameters
     --------------------
@@ -629,9 +629,9 @@ def ss_pm_consv_k_s(Nx, Ny, kx, ky, nup, l):
 
     Returns
     --------------------
-    ss_pm: scipy.sparse.csr_matrix
+    ss_xy: scipy.sparse.csr_matrix
     """
-    mat = _lib.ks_ss_pm(Nx, Ny, kx, ky, nup, l)
+    mat = _lib.ks_ss_xy(Nx, Ny, kx, ky, nup, l)
     with CoordMatrix(mat) as coordmat:
         op = coordmat.to_csr()
     return op

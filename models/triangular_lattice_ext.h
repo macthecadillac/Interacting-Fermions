@@ -19,7 +19,7 @@ coordmatrix k_h_ss_z(
         unsigned int
 );
 
-coordmatrix k_h_ss_pm(
+coordmatrix k_h_ss_xy(
         unsigned int,
         unsigned int,
         unsigned int,
@@ -51,7 +51,7 @@ coordmatrix k_ss_z(
         unsigned int
 );
 
-coordmatrix k_ss_pm(
+coordmatrix k_ss_xy(
         unsigned int,
         unsigned int,
         unsigned int,
@@ -68,7 +68,7 @@ coordmatrix ks_h_ss_z(
         unsigned int
 );
 
-coordmatrix ks_h_ss_pm(
+coordmatrix ks_h_ss_xy(
         unsigned int,
         unsigned int,
         unsigned int,
@@ -86,7 +86,7 @@ coordmatrix ks_ss_z(
         unsigned int
 );
 
-coordmatrix ks_ss_pm(
+coordmatrix ks_ss_xy(
         unsigned int,
         unsigned int,
         unsigned int,
