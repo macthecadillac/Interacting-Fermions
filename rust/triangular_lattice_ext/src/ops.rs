@@ -15,9 +15,12 @@ pub fn ss_z_elements(sites: &(Vec<u64>, Vec<u64>), orig_state: &BlochFunc) -> f6
     0.25 * (same_dir - diff_dir) as f64
 }
 
+/// Generate the xy-elements of an XXZ chain. Note: the matrix generated here
+/// corresponds to Σ(sx_i * sx_j + sy_i + sy_j), so if you are thinking in terms
+/// of s+ and s-, the 1/2 is already included in the output
 #[allow(non_snake_case)]
 #[allow(unused)]
-pub fn ss_pm_elements(nx: u32, ny: u32,
+pub fn ss_xy_elements(nx: u32, ny: u32,
                       sites: &(Vec<u64>, Vec<u64>),
                       orig_state: &BlochFunc,
                       dec_to_ind: &FnvHashMap<u64, u32>,
@@ -183,9 +186,9 @@ fn off_diag_ops(element_f: fn(nx: u32, ny: u32,
     CoordMatrix::new(data, cols, rows, dims, dims)
 }
 
-pub fn ss_pm(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
+pub fn ss_xy(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
     -> CoordMatrix<CComplex<f64>> {
-    off_diag_ops(ss_pm_elements, &sites, &bfuncs)
+    off_diag_ops(ss_xy_elements, &sites, &bfuncs)
 }
 
 pub fn ss_ppmm(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)

@@ -71,11 +71,11 @@ pub mod k {
         ops::ss_z(&sites, &bfuncs)
     }
 
-    pub fn h_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    pub fn h_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = interacting_sites(nx, ny, l);
-        ops::ss_pm(&sites, &bfuncs)
+        ops::ss_xy(&sites, &bfuncs)
     }
 
     pub fn h_ss_ppmm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
@@ -99,11 +99,11 @@ pub mod k {
         ops::ss_z(&sites, &bfuncs)
     }
 
-    pub fn ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    pub fn ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = all_sites(nx, ny, l);
-        ops::ss_pm(&sites, &bfuncs)
+        ops::ss_xy(&sites, &bfuncs)
     }
 }
 
@@ -249,11 +249,11 @@ pub mod ks {
         ops::ss_z(&sites, &bfuncs)
     }
 
-    pub fn h_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
+    pub fn h_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = interacting_sites(nx, ny, l);
-        ops::ss_pm(&sites, &bfuncs)
+        ops::ss_xy(&sites, &bfuncs)
     }
 
     pub fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
@@ -263,10 +263,10 @@ pub mod ks {
         ops::ss_z(&sites, &bfuncs)
     }
 
-    pub fn ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
+    pub fn ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = all_sites(nx, ny, l);
-        ops::ss_pm(&sites, &bfuncs)
+        ops::ss_xy(&sites, &bfuncs)
     }
 }

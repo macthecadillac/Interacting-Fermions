@@ -48,9 +48,9 @@ pub extern fn k_h_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
 }
 
 #[no_mangle]
-pub extern fn k_h_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+pub extern fn k_h_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    consv::k::h_ss_pm(nx, ny, kx, ky, l)
+    consv::k::h_ss_xy(nx, ny, kx, ky, l)
 }
 
 #[no_mangle]
@@ -72,9 +72,9 @@ pub extern fn k_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
 }
 
 #[no_mangle]
-pub extern fn k_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+pub extern fn k_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    consv::k::ss_pm(nx, ny, kx, ky, l)
+    consv::k::ss_xy(nx, ny, kx, ky, l)
 }
 
 #[no_mangle]
@@ -84,9 +84,9 @@ pub extern fn ks_h_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
 }
 
 #[no_mangle]
-pub extern fn ks_h_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
+pub extern fn ks_h_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    consv::ks::h_ss_pm(nx, ny, kx, ky, nup, l)
+    consv::ks::h_ss_xy(nx, ny, kx, ky, nup, l)
 }
 
 #[no_mangle]
@@ -96,9 +96,9 @@ pub extern fn ks_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
 }
 
 #[no_mangle]
-pub extern fn ks_ss_pm(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
+pub extern fn ks_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
     -> CoordMatrix<CComplex<f64>> {
-    consv::ks::ss_pm(nx, ny, kx, ky, nup, l)
+    consv::ks::ss_xy(nx, ny, kx, ky, nup, l)
 }
 
 // accepts a pointer from external callers so Rust can dispose of the objects
