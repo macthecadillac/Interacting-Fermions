@@ -139,6 +139,19 @@ pub fn ss_pmz_elements(nx: u32, ny: u32,
     j_element
 }
 
+/// Generate the elements of the chiral term (\vec{S_1} \times \vec{S_2}) \cdot
+/// \vec{S_3}
+#[allow(non_snake_case)]
+pub fn ss_chi(nx: u32, ny: u32,
+              sites: &(Vec<u64>, Vec<u64>),
+              orig_state: &BlochFunc,
+              dec_to_ind: &FnvHashMap<u64, u32>,
+              hashtable: &FnvHashMap<&u64, &BlochFunc>,
+              ) -> FnvHashMap<u32, Complex<f64>> {
+
+}
+
+
 pub fn ss_z(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
     -> CoordMatrix<CComplex<f64>> {
     let dims = bfuncs.nonzero;
