@@ -127,6 +127,8 @@ pub fn gamma(nx: u32, ny: u32, s1: u64, s2: u64) -> Complex<f64> {
     Complex::from_polar(&1.0, &ang)
 }
 
+/// Generate all possible pairs of interacting sites on the lattice according to
+/// the stride l
 pub fn interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u64>, Vec<u64>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
@@ -143,8 +145,46 @@ pub fn interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<u64>, Vec<u64>) {
     )
 }
 
+pub fn triangular_vert_sites(nx: u32, ny: u32) -> (Vec<u64>, Vec<u64>, Vec<u64>) {
+    let mut site1 = Vec::new();
+    let mut site2 = Vec::new();
+    let mut site3 = Vec::new();
+    let mut vec = SiteVector::new((0, 0), nx, ny);
+
+    for _ in 0..ny {
+        for _ in 0..nx {
+            // For ijk in clockwise direction in upright triangle
+            let s1 = vec.lattice_index();
+            let s2 = vec.xhop(1).lattice_index();
+            let s3 = vec.xhop(1).yhop(1).lattice_index();
+            site1.push(s1);
+            site2.push(s2);
+            site3.push(s3);
+
+            // For ijk in clockwise direction in inverted triangle
+            let s4 = vec.lattice_index();
+            let s5 = vec.xhop(1).lattice_index();
+            let s6 = vec.xhop(1).yhop(-1).lattice_index();
+            site1.push(s4);
+            site2.push(s5);
+            site3.push(s6);
+
+            vec = vec.xhop(1);
+        }
+        vec = vec.yhop(1);
+    }
+
+    (
+    site1.into_iter().map(|s| 2_u64.pow(s)).collect::<Vec<u64>>(),
+    site2.into_iter().map(|s| 2_u64.pow(s)).collect::<Vec<u64>>(),
+    site3.into_iter().map(|s| 2_u64.pow(s)).collect::<Vec<u64>>()
+    )
+}
+
+/// Generate all permutations of the combination of any two sites on the lattice
+/// where l = |i - j| for sites i and j
 pub fn all_sites(nx: u32, ny: u32, l: u32) -> (Vec<u64>, Vec<u64>) {
-    let mut vec = SiteVector::new((0, 0), nx, ny );
+    let mut vec = SiteVector::new((0, 0), nx, ny);
     let xstride = (l % nx) as i32;
     let ystride = (l / nx) as i32;
     let mut site1 = Vec::new();
