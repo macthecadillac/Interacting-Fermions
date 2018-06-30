@@ -6,7 +6,6 @@ pub mod k {
     use blochfunc::{BlochFunc, BlochFuncSet};
     use common::*;
     use ops;
-    use super::super::PI;
 
     pub fn bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
         let n = nx * ny;
@@ -28,13 +27,13 @@ pub mod k {
                 // "decs" is a hashtable that holds vectors whose entries
                 // correspond to Bloch function constituent configurations which
                 // are mapped to single decimals that represent the leading states.
-                let mut decs: FnvHashMap<u64, Complex<f64>> = FnvHashMap::default();
+                let mut decs: FnvHashMap<BinaryBasis, Complex<f64>> = FnvHashMap::default();
                 // "new_dec" represents the configuration we are currently iterating
                 // over.
-                let mut new_dec = dec as u64;
+                let mut new_dec = BinaryBasis(dec as u64);
                 for j in 0..ny {
                     for i in 0..nx {
-                        sieve[new_dec as usize] = false;
+                        sieve[new_dec.as_u64() as usize] = false;
                         let new_p = match decs.get(&new_dec) {
                             Some(&p) => p + phase(i, j),
                             None     => phase(i, j)
@@ -45,7 +44,7 @@ pub mod k {
                     new_dec = translate_y(new_dec, nx, ny);
                 }
 
-                let lead = dec as u64;
+                let lead = BinaryBasis(dec as u64);
                 let norm = decs.values()
                     .into_iter()
                     .map(|&x| x.norm_sqr())
@@ -92,6 +91,13 @@ pub mod k {
         ops::ss_pmz(&sites, &bfuncs)
     }
 
+    pub fn h_ss_chi(nx: u32, ny: u32, kx: u32, ky: u32)
+        -> CoordMatrix<CComplex<f64>> {
+        let bfuncs = bloch_states(nx, ny, kx, ky);
+        let sites = triangular_vert_sites(nx, ny);
+        ops::ss_chi(&sites, &bfuncs)
+    }
+
     pub fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
@@ -117,8 +123,6 @@ pub mod ks {
     use common::*;
     use ops;
     use blochfunc::{BlochFunc, BlochFuncSet};
-    use super::super::PI;
-    use super::super::POW2;
 
     pub fn permute(mut v: Vec<i32>, lmax: u32) -> Vec<i32> {
         if v[0] > 0 { v[0] -= 1; v }
@@ -141,8 +145,8 @@ pub mod ks {
         }
     }
 
-    pub fn compose(v: &Vec<i32>) -> u64 {
-        v.iter().fold(0, |acc, &x| POW2[x as usize] + acc)
+    pub fn compose(v: &Vec<i32>) -> BinaryBasis {
+        v.iter().fold(BinaryBasis(0), |acc, &x| POW2[x as usize] + acc)
     }
 
     pub fn fac(n: BigUint) -> BigUint {
@@ -157,14 +161,14 @@ pub mod ks {
         ncr.to_bytes_le()
            .iter()
            .enumerate()
-           .map(|(i, &x)| x as u64 * POW2[i as usize * 8])
+           .map(|(i, &x)| x as u64 * POW2[i as usize * 8].as_u64())
            .sum()
     }
 
-    pub fn sz_basis(n: u32, nup: u32) -> Vec<u64> {
+    pub fn sz_basis(n: u32, nup: u32) -> Vec<BinaryBasis> {
         let mut l = (0..nup as i32).collect::<Vec<i32>>();
         let l_size = choose(n, nup);
-        let mut sz_basis_states: Vec<u64> = Vec::with_capacity(l_size as usize);
+        let mut sz_basis_states: Vec<BinaryBasis> = Vec::with_capacity(l_size as usize);
         for _ in 0..l_size {
             l = permute(l, n - 1);
             let i = compose(&l);
@@ -178,8 +182,8 @@ pub mod ks {
         let n = nx * ny;
 
         let sz_basis_states = sz_basis(n, nup);
-        let mut szdec_to_ind: FnvHashMap<u64, usize> = FnvHashMap::default();
-        let mut ind_to_szdec: FnvHashMap<usize, u64> = FnvHashMap::default();
+        let mut szdec_to_ind: FnvHashMap<BinaryBasis, usize> = FnvHashMap::default();
+        let mut ind_to_szdec: FnvHashMap<usize, BinaryBasis> = FnvHashMap::default();
         for (i, &bs) in sz_basis_states.iter().enumerate() {
             ind_to_szdec.insert(i, bs);
             szdec_to_ind.insert(bs, i);
@@ -203,10 +207,10 @@ pub mod ks {
                 // "decs" is a hashtable that holds vectors whose entries
                 // correspond to Bloch function constituent configurations which
                 // are mapped to single decimals that represent the leading states.
-                let mut decs: FnvHashMap<u64, Complex<f64>> = FnvHashMap::default();
+                let mut decs: FnvHashMap<BinaryBasis, Complex<f64>> = FnvHashMap::default();
                 // "new_dec" represents the configuration we are currently iterating
                 // over.
-                let dec = *ind_to_szdec.get(&ind).unwrap() as u64;
+                let dec = *ind_to_szdec.get(&ind).unwrap();
                 let mut new_dec = dec;
                 let mut new_ind = ind;
                 for j in 0..ny {
@@ -254,6 +258,13 @@ pub mod ks {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = interacting_sites(nx, ny, l);
         ops::ss_xy(&sites, &bfuncs)
+    }
+
+    pub fn h_ss_chi(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32)
+        -> CoordMatrix<CComplex<f64>> {
+        let bfuncs = bloch_states(nx, ny, kx, ky, nup);
+        let sites = triangular_vert_sites(nx, ny);
+        ops::ss_chi(&sites, &bfuncs)
     }
 
     pub fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)

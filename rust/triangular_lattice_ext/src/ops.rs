@@ -6,7 +6,7 @@ use fnv::FnvHashMap;
 use blochfunc::{BlochFunc, BlochFuncSet};
 use common::*;
 
-pub fn ss_z_elements(sites: &(Vec<u64>, Vec<u64>), orig_state: &BlochFunc) -> f64 {
+pub fn ss_z_elements(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), orig_state: &BlochFunc) -> f64 {
     let (ref site1, ref site2) = *sites;
     let mut same_dir = 0_i32;
     for (&s1, &s2) in site1.iter().zip(site2.iter()) {
@@ -24,17 +24,17 @@ pub fn ss_z_elements(sites: &(Vec<u64>, Vec<u64>), orig_state: &BlochFunc) -> f6
 #[allow(non_snake_case)]
 #[allow(unused)]
 pub fn ss_xy_elements(nx: u32, ny: u32,
-                      sites: &(Vec<u64>, Vec<u64>),
+                      sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>),
                       orig_state: &BlochFunc,
-                      dec_to_ind: &FnvHashMap<u64, u32>,
-                      hashtable: &FnvHashMap<&u64, &BlochFunc>
+                      dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
+                      hashtable: &FnvHashMap<&BinaryBasis, &BlochFunc>
                       ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(0.5, 0.);
     let mut j_element = FnvHashMap::default();
     let (ref site1, ref site2) = *sites;
     for (&s1, &s2) in site1.iter().zip(site2.iter()) {
         let (updown, downup) = exchange_spin_flips(orig_state.lead, s1, s2);
-        let mut new_dec: u64;
+        let mut new_dec: BinaryBasis;
         match (updown, downup) {
             (true, false) => new_dec = orig_state.lead - s1 + s2,
             (false, true) => new_dec = orig_state.lead + s1 - s2,
@@ -59,17 +59,17 @@ pub fn ss_xy_elements(nx: u32, ny: u32,
 
 #[allow(non_snake_case)]
 pub fn ss_ppmm_elements(nx: u32, ny: u32,
-                        sites: &(Vec<u64>, Vec<u64>),
+                        sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>),
                         orig_state: &BlochFunc,
-                        dec_to_ind: &FnvHashMap<u64, u32>,
-                        hashtable: &FnvHashMap<&u64, &BlochFunc>
+                        dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
+                        hashtable: &FnvHashMap<&BinaryBasis, &BlochFunc>
                         ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(1., 0.);
     let mut j_element = FnvHashMap::default();
     let (ref site1, ref site2) = *sites;
     for (&s1, &s2) in site1.iter().zip(site2.iter()) {
         let (upup, downdown) = repeated_spins(orig_state.lead, s1, s2);
-        let mut new_dec: u64;
+        let mut new_dec: BinaryBasis;
         let mut _gamma = Complex::new(0., 0.);
         match (upup, downdown) {
             (true, false) => {
@@ -101,10 +101,10 @@ pub fn ss_ppmm_elements(nx: u32, ny: u32,
 
 #[allow(non_snake_case)]
 pub fn ss_pmz_elements(nx: u32, ny: u32,
-                       sites: &(Vec<u64>, Vec<u64>),
+                       sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>),
                        orig_state: &BlochFunc,
-                       dec_to_ind: &FnvHashMap<u64, u32>,
-                       hashtable: &FnvHashMap<&u64, &BlochFunc>,
+                       dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
+                       hashtable: &FnvHashMap<&BinaryBasis, &BlochFunc>,
                        ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(0., 1.);  // the entire operator was multiplied by i
     let mut j_element = FnvHashMap::default();
@@ -114,7 +114,7 @@ pub fn ss_pmz_elements(nx: u32, ny: u32,
             let z_contrib =
                 if orig_state.lead | s1 == orig_state.lead { 0.5 } else { -0.5 };
 
-            let mut new_dec: u64;
+            let mut new_dec: BinaryBasis;
             let mut _gamma = Complex::new(0., 0.);
             if orig_state.lead | s2 == orig_state.lead {
                 new_dec = orig_state.lead - s2;
@@ -148,10 +148,10 @@ pub fn ss_pmz_elements(nx: u32, ny: u32,
 #[allow(unused)]
 #[allow(non_snake_case)]
 pub fn ss_chi_elements(nx: u32, ny: u32,
-              sites: &(Vec<u64>, Vec<u64>, Vec<u64>),
+              sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>),
               orig_state: &BlochFunc,
-              dec_to_ind: &FnvHashMap<u64, u32>,
-              hashtable: &FnvHashMap<&u64, &BlochFunc>,
+              dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
+              hashtable: &FnvHashMap<&BinaryBasis, &BlochFunc>,
               ) -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(0., 0.5);;
     let mut j_element = FnvHashMap::default();
@@ -165,7 +165,7 @@ pub fn ss_chi_elements(nx: u32, ny: u32,
     for (&s1, &s2, &s3) in zip3 {
         for _ in 0..3 {
             let (mut si, mut sj, mut sk) = (s1, s2, s3);
-            let mut s_tmp: u64;
+            let mut s_tmp: BinaryBasis;
             for _ in 0..3 {
                 // switch ijk orders
                 s_tmp = si;
@@ -174,7 +174,7 @@ pub fn ss_chi_elements(nx: u32, ny: u32,
                 sk = s_tmp;
 
                 let (updown, downup) = exchange_spin_flips(orig_state.lead, sj, sk);
-                let mut new_dec: u64;
+                let mut new_dec: BinaryBasis;
                 match (updown, downup) {
                     (true, false) => new_dec = orig_state.lead - sj + sk,
                     (false, true) => new_dec = orig_state.lead + sj - sk,
@@ -202,7 +202,7 @@ pub fn ss_chi_elements(nx: u32, ny: u32,
 }
 
 
-pub fn ss_z(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
+pub fn ss_z(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), bfuncs: &BlochFuncSet)
     -> CoordMatrix<CComplex<f64>> {
     let dims = bfuncs.nonzero;
     let (ind_to_dec, _) = gen_ind_dec_conv_dicts(&bfuncs);
@@ -220,13 +220,13 @@ pub fn ss_z(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
     CoordMatrix::new(data, cols, rows, dims, dims)
 }
 
-fn off_diag_ops(element_f: fn(nx: u32, ny: u32,
-                              sites: &(Vec<u64>, Vec<u64>),
-                              orig_state: &BlochFunc,
-                              dec_to_ind: &FnvHashMap<u64, u32>,
-                              hashtable: &FnvHashMap<&u64, &BlochFunc>
-                              ) -> FnvHashMap<u32, Complex<f64>>,
-                sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
+fn off_diag_ops<T>(element_f: fn(nx: u32, ny: u32,
+                                 sites: &T,
+                                 orig_state: &BlochFunc,
+                                 dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
+                                 hashtable: &FnvHashMap<&BinaryBasis, &BlochFunc>
+                                 ) -> FnvHashMap<u32, Complex<f64>>,
+                  sites: &T, bfuncs: &BlochFuncSet)
     -> CoordMatrix<CComplex<f64>> {
     let dims = bfuncs.nonzero;
     let hashtable = BlochFuncSet::build_dict(&bfuncs);
@@ -249,17 +249,22 @@ fn off_diag_ops(element_f: fn(nx: u32, ny: u32,
     CoordMatrix::new(data, cols, rows, dims, dims)
 }
 
-pub fn ss_xy(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
+pub fn ss_xy(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), bfuncs: &BlochFuncSet)
     -> CoordMatrix<CComplex<f64>> {
     off_diag_ops(ss_xy_elements, &sites, &bfuncs)
 }
 
-pub fn ss_ppmm(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
+pub fn ss_ppmm(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), bfuncs: &BlochFuncSet)
     -> CoordMatrix<CComplex<f64>> {
     off_diag_ops(ss_ppmm_elements, &sites, &bfuncs)
 }
 
-pub fn ss_pmz(sites: &(Vec<u64>, Vec<u64>), bfuncs: &BlochFuncSet)
+pub fn ss_pmz(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), bfuncs: &BlochFuncSet)
     -> CoordMatrix<CComplex<f64>> {
     off_diag_ops(ss_pmz_elements, &sites, &bfuncs)
+}
+
+pub fn ss_chi(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>),
+              bfuncs: &BlochFuncSet) -> CoordMatrix<CComplex<f64>> {
+    off_diag_ops(ss_chi_elements, &sites, &bfuncs)
 }

@@ -2,10 +2,12 @@ use std::cmp::Ordering;
 use fnv::FnvHashMap;
 use num_complex::Complex;
 
+use common::BinaryBasis;
+
 #[derive(Clone, Debug)]
 pub struct BlochFunc {
-    pub lead: u64,
-    pub decs: FnvHashMap<u64, Complex<f64>>,
+    pub lead: BinaryBasis,
+    pub decs: FnvHashMap<BinaryBasis, Complex<f64>>,
     pub norm: f64,
 }
 
@@ -52,7 +54,7 @@ impl<'a> BlochFuncSet {
         BlochFuncSetIterator::new(&self.data)
     }
 
-    pub fn build_dict(bfuncs: &BlochFuncSet) -> FnvHashMap<&u64, &BlochFunc> {
+    pub fn build_dict(bfuncs: &BlochFuncSet) -> FnvHashMap<&BinaryBasis, &BlochFunc> {
         let mut hashtable = FnvHashMap::default();
         for bfunc in bfuncs.data.iter() {
             for dec in bfunc.decs.keys() {
