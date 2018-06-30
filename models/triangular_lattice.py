@@ -373,9 +373,11 @@ def h_ss_z_consv_k(Nx, Ny, kx, ky, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
+        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
     l:  int
 
     Returns
@@ -398,9 +400,11 @@ def h_ss_xy_consv_k(Nx, Ny, kx, ky, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
+        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
     l:  int
 
     Returns
@@ -423,9 +427,11 @@ def h_ss_ppmm_consv_k(Nx, Ny, kx, ky, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
+        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
     l:  int
 
     Returns
@@ -448,9 +454,11 @@ def h_ss_pmz_consv_k(Nx, Ny, kx, ky, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
+        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
     l:  int
 
     Returns
@@ -458,6 +466,32 @@ def h_ss_pmz_consv_k(Nx, Ny, kx, ky, l):
     H: scipy.sparse.csr_matrix
     """
     mat = _lib.k_h_ss_pmz(Nx, Ny, kx, ky, l)
+    with CoordMatrix(mat) as coordmat:
+        H = coordmat.to_csr()
+    return H
+
+
+def h_sss_chi_consv_k(Nx, Ny, kx, ky):
+    """construct the H_chi matrix in the given momentum configuration
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
+
+    Returns
+    --------------------
+    H: scipy.sparse.csr_matrix
+    """
+    mat = _lib.k_h_sss_chi(Nx, Ny, kx, ky)
     with CoordMatrix(mat) as coordmat:
         H = coordmat.to_csr()
     return H
@@ -473,9 +507,11 @@ def h_ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
+        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
     nup: int
         the total number of sites with a spin-up
     l:  int
@@ -500,9 +536,11 @@ def h_ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
+        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
     nup: int
         the total number of sites with a spin-up
     l:  int
@@ -512,6 +550,33 @@ def h_ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
     H: scipy.sparse.csr_matrix
     """
     mat = _lib.ks_h_ss_xy(Nx, Ny, kx, ky, nup, l)
+    with CoordMatrix(mat) as coordmat:
+        H = coordmat.to_csr()
+    return H
+
+
+def h_sss_chi_consv_k_s(Nx, Ny, kx, ky, nup):
+    """construct the H_chi matrix in the given momentum configuration
+
+    Parameters
+    --------------------
+    Nx: int
+        lattice length in the x-direction
+    Ny: int
+        lattice length in the y-direction
+    kx: int
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
+    ky: int
+        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+        Brillouin zone
+    nup: int
+
+    Returns
+    --------------------
+    H: scipy.sparse.csr_matrix
+    """
+    mat = _lib.ks_h_sss_chi(Nx, Ny, kx, ky, nup)
     with CoordMatrix(mat) as coordmat:
         H = coordmat.to_csr()
     return H
@@ -528,10 +593,10 @@ def ss_z_consv_k(Nx, Ny, kx, ky, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
-        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        the y-component of lattice momentum * Ny / 2π in a [0, 2π)
         Brillouin zone
     l:  int
         the separation between sites: |i - j|
@@ -557,10 +622,10 @@ def ss_xy_consv_k(Nx, Ny, kx, ky, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
-        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        the y-component of lattice momentum * Ny / 2π in a [0, 2π)
         Brillouin zone
     l:  int
         the separation between sites: |i - j|
@@ -586,10 +651,10 @@ def ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
-        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        the y-component of lattice momentum * Ny / 2π in a [0, 2π)
         Brillouin zone
     nup: int
         the total number of sites with a spin-up
@@ -617,10 +682,10 @@ def ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
     Ny: int
         lattice length in the y-direction
     kx: int
-        the x-component of lattice momentum * Nx / 2π in a (-π, +π]
+        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
         Brillouin zone
     ky: int
-        the y-component of lattice momentum * Ny / 2π in a (-π, +π]
+        the y-component of lattice momentum * Ny / 2π in a [0, 2π)
         Brillouin zone
     nup: int
         the total number of sites with a spin-up

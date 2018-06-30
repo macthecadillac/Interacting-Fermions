@@ -43,6 +43,13 @@ coordmatrix k_h_ss_pmz(
         unsigned int
 );
 
+coordmatrix k_h_sss_chi(
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int
+);
+
 coordmatrix k_ss_z(
         unsigned int,
         unsigned int,
@@ -70,6 +77,14 @@ coordmatrix ks_h_ss_z(
 
 coordmatrix ks_h_ss_xy(
         unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int,
+        unsigned int
+);
+
+coordmatrix ks_h_sss_chi(
         unsigned int,
         unsigned int,
         unsigned int,
