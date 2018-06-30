@@ -156,7 +156,7 @@ pub fn ss_pmz_elements(nx: Dim, ny: Dim,
 /// S^+_k). The factor of 1/2 is already included in the output
 #[allow(unused)]
 #[allow(non_snake_case)]
-pub fn ss_chi_elements(nx: Dim, ny: Dim,
+pub fn sss_chi_elements(nx: Dim, ny: Dim,
                        sites: &(Vec<BinaryBasis>,
                         Vec<BinaryBasis>,
                         Vec<BinaryBasis>),
@@ -283,8 +283,8 @@ pub fn ss_pmz(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), bfuncs: &BlochFuncSe
     off_diag_ops(ss_pmz_elements, &sites, &bfuncs)
 }
 
-pub fn ss_chi(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>),
+pub fn sss_chi(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>),
               bfuncs: &BlochFuncSet)
               -> CoordMatrix<CComplex<f64>> {
-    off_diag_ops(ss_chi_elements, &sites, &bfuncs)
+    off_diag_ops(sss_chi_elements, &sites, &bfuncs)
 }

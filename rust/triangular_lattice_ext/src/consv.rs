@@ -92,10 +92,10 @@ pub mod k {
         ops::ss_pmz(&sites, &bfuncs)
     }
 
-    pub fn h_ss_chi(nx: Dim, ny: Dim, kx: K, ky: K) -> CoordMatrix<CComplex<f64>> {
+    pub fn h_sss_chi(nx: Dim, ny: Dim, kx: K, ky: K) -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = triangular_vert_sites(nx, ny);
-        ops::ss_chi(&sites, &bfuncs)
+        ops::sss_chi(&sites, &bfuncs)
     }
 
     pub fn ss_z(nx: Dim, ny: Dim, kx: K, ky: K, l: I) -> CoordMatrix<CComplex<f64>> {
@@ -268,11 +268,11 @@ pub mod ks {
         ops::ss_xy(&sites, &bfuncs)
     }
 
-    pub fn h_ss_chi(nx: Dim, ny: Dim, kx: K, ky: K, nup: u32)
+    pub fn h_sss_chi(nx: Dim, ny: Dim, kx: K, ky: K, nup: u32)
                     -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = triangular_vert_sites(nx, ny);
-        ops::ss_chi(&sites, &bfuncs)
+        ops::sss_chi(&sites, &bfuncs)
     }
 
     pub fn ss_z(nx: Dim, ny: Dim, kx: K, ky: K, nup: u32, l: I)
