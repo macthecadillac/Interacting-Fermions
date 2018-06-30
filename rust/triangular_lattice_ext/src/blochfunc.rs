@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use fnv::FnvHashMap;
 use num_complex::Complex;
 
-use common::BinaryBasis;
+use common::{BinaryBasis, Dim};
 
 #[derive(Clone, Debug)]
 pub struct BlochFunc {
@@ -35,12 +35,12 @@ impl Eq for BlochFunc {}
 pub struct BlochFuncSet {
     pub data: Vec<BlochFunc>,
     pub nonzero: u32,
-    pub nx: u32,
-    pub ny: u32,
+    pub nx: Dim,
+    pub ny: Dim,
 }
 
 impl<'a> BlochFuncSet {
-    pub fn create(nx: u32, ny: u32, bfuncs: Vec<BlochFunc>) -> BlochFuncSet {
+    pub fn create(nx: Dim, ny: Dim, bfuncs: Vec<BlochFunc>) -> BlochFuncSet {
         let data = bfuncs;
         let nonzero = data.len() as u32;
         BlochFuncSet{ data, nonzero, nx, ny }

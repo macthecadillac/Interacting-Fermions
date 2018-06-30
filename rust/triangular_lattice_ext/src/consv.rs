@@ -7,18 +7,18 @@ pub mod k {
     use common::*;
     use ops;
 
-    pub fn bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32) -> BlochFuncSet {
+    pub fn bloch_states<'a>(nx: Dim, ny: Dim, kx: u32, ky: u32) -> BlochFuncSet {
         let n = nx * ny;
-        let mut sieve = vec![true; 2_usize.pow(n)];
+        let mut sieve = vec![true; 2_usize.pow(n.raw_int())];
         let mut bfuncs: Vec<BlochFunc> = Vec::new();
         let phase = |i, j| {
             let r = 1.;
-            let ang1 = 2. * PI * (i * kx) as f64 / nx as f64;
-            let ang2 = 2. * PI * (j * ky) as f64 / ny as f64;
+            let ang1 = 2. * PI * (i * kx) as f64 / nx.raw_int() as f64;
+            let ang2 = 2. * PI * (j * ky) as f64 / ny.raw_int() as f64;
             Complex::from_polar(&r, &(ang1 + ang2))
         };
 
-        for dec in 0..2_usize.pow(n) {
+        for dec in 0..2_usize.pow(n.raw_int()) {
             if sieve[dec]
             {   // if the corresponding entry of dec in "sieve" is not false,
                 // we find all translations of dec and put them in a BlochFunc
@@ -31,9 +31,9 @@ pub mod k {
                 // "new_dec" represents the configuration we are currently iterating
                 // over.
                 let mut new_dec = BinaryBasis(dec as u64);
-                for j in 0..ny {
-                    for i in 0..nx {
-                        sieve[new_dec.as_u64() as usize] = false;
+                for j in 0..ny.raw_int() {
+                    for i in 0..nx.raw_int() {
+                        sieve[new_dec.raw_int() as usize] = false;
                         let new_p = match decs.get(&new_dec) {
                             Some(&p) => p + phase(i, j),
                             None     => phase(i, j)
@@ -63,49 +63,49 @@ pub mod k {
         table
     }
 
-    pub fn h_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    pub fn h_ss_z(nx: Dim, ny: Dim, kx: u32, ky: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = interacting_sites(nx, ny, l);
         ops::ss_z(&sites, &bfuncs)
     }
 
-    pub fn h_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    pub fn h_ss_xy(nx: Dim, ny: Dim, kx: u32, ky: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = interacting_sites(nx, ny, l);
         ops::ss_xy(&sites, &bfuncs)
     }
 
-    pub fn h_ss_ppmm(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    pub fn h_ss_ppmm(nx: Dim, ny: Dim, kx: u32, ky: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = interacting_sites(nx, ny, l);
         ops::ss_ppmm(&sites, &bfuncs)
     }
 
-    pub fn h_ss_pmz(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    pub fn h_ss_pmz(nx: Dim, ny: Dim, kx: u32, ky: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = interacting_sites(nx, ny, l);
         ops::ss_pmz(&sites, &bfuncs)
     }
 
-    pub fn h_ss_chi(nx: u32, ny: u32, kx: u32, ky: u32)
+    pub fn h_ss_chi(nx: Dim, ny: Dim, kx: u32, ky: u32)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = triangular_vert_sites(nx, ny);
         ops::ss_chi(&sites, &bfuncs)
     }
 
-    pub fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    pub fn ss_z(nx: Dim, ny: Dim, kx: u32, ky: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = all_sites(nx, ny, l);
         ops::ss_z(&sites, &bfuncs)
     }
 
-    pub fn ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
+    pub fn ss_xy(nx: Dim, ny: Dim, kx: u32, ky: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky);
         let sites = all_sites(nx, ny, l);
@@ -154,30 +154,30 @@ pub mod ks {
         else { n.clone() * fac(n.clone() - 1_u64.to_biguint().unwrap()) }
     }
 
-    pub fn choose(n: u32, c: u32) -> u64 {
-        let n = n.to_biguint().unwrap();
+    pub fn choose(n: Dim, c: u32) -> u64 {
+        let n = n.raw_int().to_biguint().unwrap();
         let c = c.to_biguint().unwrap();
         let ncr = fac(n.clone()) / (fac(c.clone()) * fac(n.clone() - c.clone()));
         ncr.to_bytes_le()
            .iter()
            .enumerate()
-           .map(|(i, &x)| x as u64 * POW2[i as usize * 8].as_u64())
+           .map(|(i, &x)| x as u64 * POW2[i as usize * 8].raw_int())
            .sum()
     }
 
-    pub fn sz_basis(n: u32, nup: u32) -> Vec<BinaryBasis> {
+    pub fn sz_basis(n: Dim, nup: u32) -> Vec<BinaryBasis> {
         let mut l = (0..nup as i32).collect::<Vec<i32>>();
         let l_size = choose(n, nup);
         let mut sz_basis_states: Vec<BinaryBasis> = Vec::with_capacity(l_size as usize);
         for _ in 0..l_size {
-            l = permute(l, n - 1);
+            l = permute(l, n.raw_int() - 1);
             let i = compose(&l);
             sz_basis_states.push(i);
         }
         sz_basis_states
     }
 
-    pub fn bloch_states<'a>(nx: u32, ny: u32, kx: u32, ky: u32,
+    pub fn bloch_states<'a>(nx: Dim, ny: Dim, kx: u32, ky: u32,
                         nup: u32) -> BlochFuncSet {
         let n = nx * ny;
 
@@ -193,8 +193,8 @@ pub mod ks {
         let mut bfuncs: Vec<BlochFunc> = Vec::new();
         let phase = |i, j| {
             let r = 1.;
-            let ang1 = 2. * PI * (i * kx) as f64 / nx as f64;
-            let ang2 = 2. * PI * (j * ky) as f64 / ny as f64;
+            let ang1 = 2. * PI * (i * kx) as f64 / nx.raw_int() as f64;
+            let ang2 = 2. * PI * (j * ky) as f64 / ny.raw_int() as f64;
             Complex::from_polar(&r, &(ang1 + ang2))
         };
 
@@ -213,8 +213,8 @@ pub mod ks {
                 let dec = *ind_to_szdec.get(&ind).unwrap();
                 let mut new_dec = dec;
                 let mut new_ind = ind;
-                for j in 0..ny {
-                    for i in 0..nx {
+                for j in 0..ny.raw_int() {
+                    for i in 0..nx.raw_int() {
                         sieve[new_ind as usize] = false;
                         let new_p = match decs.get(&new_dec) {
                             Some(&p) => p + phase(i, j),
@@ -246,35 +246,35 @@ pub mod ks {
         table
     }
 
-    pub fn h_ss_z(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
+    pub fn h_ss_z(nx: Dim, ny: Dim, kx: u32, ky: u32, nup: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = interacting_sites(nx, ny, l);
         ops::ss_z(&sites, &bfuncs)
     }
 
-    pub fn h_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
+    pub fn h_ss_xy(nx: Dim, ny: Dim, kx: u32, ky: u32, nup: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = interacting_sites(nx, ny, l);
         ops::ss_xy(&sites, &bfuncs)
     }
 
-    pub fn h_ss_chi(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32)
+    pub fn h_ss_chi(nx: Dim, ny: Dim, kx: u32, ky: u32, nup: u32)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = triangular_vert_sites(nx, ny);
         ops::ss_chi(&sites, &bfuncs)
     }
 
-    pub fn ss_z(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
+    pub fn ss_z(nx: Dim, ny: Dim, kx: u32, ky: u32, nup: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = all_sites(nx, ny, l);
         ops::ss_z(&sites, &bfuncs)
     }
 
-    pub fn ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u32)
+    pub fn ss_xy(nx: Dim, ny: Dim, kx: u32, ky: u32, nup: u32, l: I)
         -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = all_sites(nx, ny, l);

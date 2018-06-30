@@ -1,6 +1,8 @@
 use std::mem;
+use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign,
+               Rem, RemAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign,
+               Neg};
 use std::cmp::Ordering;
-use std::ops::{Add, Sub, Mul, Div, Rem, BitAnd, BitOr};
 use libc::size_t;
 use num_complex::Complex;
 use fnv::FnvHashMap;
@@ -36,6 +38,62 @@ pub const POW2: [BinaryBasis; 63] = [
     BinaryBasis(1152921504606846976), BinaryBasis(2305843009213693952),
     BinaryBasis(4611686018427387904)
 ];
+
+make_int_type!(BinaryBasis, u64);
+make_int_type!(Dim, u32);
+make_int_type!(I, i32);
+
+impl Neg for I {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        I(-self.0)
+    }
+}
+
+impl Add<Dim> for I {
+    type Output = Self;
+
+    fn add(self, rhs: Dim) -> Self {
+        I(self.0 + rhs.0 as i32)
+    }
+}
+
+impl AddAssign<Dim> for I {
+    fn add_assign(&mut self, rhs: Dim) {
+        *self = I(self.0 + rhs.0 as i32)
+    }
+}
+
+impl Mul<Dim> for I {
+    type Output = Self;
+
+    fn mul(self, rhs: Dim) -> Self {
+        I(self.0 * rhs.0 as i32)
+    }
+}
+
+impl Rem<Dim> for I {
+    type Output = Self;
+
+    fn rem(self, rhs: Dim) -> Self {
+        I(self.0 % rhs.0 as i32)
+    }
+}
+
+impl RemAssign<Dim> for I {
+    fn rem_assign(&mut self, rhs: Dim) {
+        *self = I(self.0 % rhs.0 as i32)
+    }
+}
+
+impl Div<Dim> for I {
+    type Output = Self;
+
+    fn div(self, rhs: Dim) -> Self {
+        I(self.0 / rhs.0 as i32)
+    }
+}
 
 // c compatible complex type for export to numpy at the end
 #[repr(C)]
@@ -95,86 +153,12 @@ impl<T> CoordMatrix<T> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub struct BinaryBasis(pub u64);
-
-impl BinaryBasis  {
-    pub fn as_u64(self) -> u64 { self.0 }
-}
-
-impl BitAnd for BinaryBasis {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self {
-        BinaryBasis(self.0 & rhs.0)
-    }
-}
-
-impl BitOr for BinaryBasis {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self {
-        BinaryBasis(self.0 | rhs.0)
-    }
-}
-
-impl Add for BinaryBasis {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self {
-        BinaryBasis(self.0 + rhs.0)
-    }
-}
-
-impl Sub for BinaryBasis {
-    type Output = Self;
-
-    fn sub(self, rhs:Self) -> Self {
-        BinaryBasis(self.0 - rhs.0)
-    }
-}
-
-impl Mul for BinaryBasis {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self {
-        BinaryBasis(self.0 * rhs.0)
-    }
-}
-
-impl Div for BinaryBasis {
-    type Output = Self;
-
-    fn div(self, rhs: Self) -> Self {
-        BinaryBasis(self.0 / rhs.0)
-    }
-}
-
-impl Rem for BinaryBasis {
-    type Output = Self;
-
-    fn rem(self, rhs: Self) -> Self {
-        BinaryBasis(self.0 % rhs.0)
-    }
-}
-
-impl Ord for BinaryBasis {
-    fn cmp(&self, rhs: &Self) -> Ordering {
-        self.0.cmp(&rhs.0)
-    }
-}
-
-impl PartialOrd for BinaryBasis {
-    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        Some(self.cmp(rhs))
-    }
-}
-
-pub fn translate_x(dec: BinaryBasis, nx: u32, ny: u32) -> BinaryBasis {
-    let n = (0..ny).map(|x| x * nx).collect::<Vec<u32>>();
+pub fn translate_x(dec: BinaryBasis, nx: Dim, ny: Dim) -> BinaryBasis {
+    let n = (0..ny.raw_int()).map(|x| x * nx.raw_int()).collect::<Vec<u32>>();
     let s = n.iter()
-             .map(|&x| dec % POW2[(x + nx) as usize] / POW2[x as usize])
-             .map(|x| (x * BinaryBasis(2)) % POW2[nx as usize] + x / POW2[nx as usize - 1]);
+             .map(|&x| dec % POW2[(x + nx.raw_int()) as usize] / POW2[x as usize])
+             .map(|x| (x * BinaryBasis(2)) % POW2[nx.raw_int() as usize] +
+                       x / POW2[nx.raw_int() as usize - 1]);
 
     n.iter().map(|&x| POW2[x as usize])
      .zip(s)
@@ -182,9 +166,9 @@ pub fn translate_x(dec: BinaryBasis, nx: u32, ny: u32) -> BinaryBasis {
      .fold(BinaryBasis(0), |acc, x| x + acc) // sum over vector
 }
 
-pub fn translate_y(dec: BinaryBasis, nx: u32, ny: u32) -> BinaryBasis {
-    let xdim = POW2[nx as usize];
-    let pred_totdim = POW2[nx as usize * (ny - 1) as usize];
+pub fn translate_y(dec: BinaryBasis, nx: Dim, ny: Dim) -> BinaryBasis {
+    let xdim = POW2[nx.raw_int() as usize];
+    let pred_totdim = POW2[nx.raw_int() as usize * (ny.raw_int() - 1) as usize];
     let tail = dec % xdim;
     dec / xdim + tail * pred_totdim
 }
@@ -201,11 +185,11 @@ pub fn repeated_spins(dec: BinaryBasis, s1: BinaryBasis, s2: BinaryBasis) -> (bo
     (upup, downdown)
 }
 
-pub fn generate_bonds(nx: u32, ny: u32) -> Vec<Vec<Vec<SiteVector>>> {
+pub fn generate_bonds(nx: Dim, ny: Dim) -> Vec<Vec<Vec<SiteVector>>> {
     let n = nx * ny;
-    let mut vec = SiteVector::new((0, 0), nx, ny);
+    let mut vec = SiteVector::new((I(0), I(0)), nx, ny);
     let mut bonds_by_range = vec![Vec::new(); 3];
-    for _ in 0..n {
+    for _ in 0..n.raw_int() {
         let nearest_neighbor = vec.nearest_neighboring_sites(false);
         let second_neighbor = vec.second_neighboring_sites(false);
         let third_neighbor = vec.third_neighboring_sites(false);
@@ -222,11 +206,11 @@ pub fn generate_bonds(nx: u32, ny: u32) -> Vec<Vec<Vec<SiteVector>>> {
     bonds_by_range
 }
 
-pub fn gamma(nx: u32, ny: u32, s1: BinaryBasis, s2: BinaryBasis) -> Complex<f64> {
-    let m = (s1.as_u64() as f64).log2().round() as u32;
-    let n = (s2.as_u64() as f64).log2().round() as u32;
-    let vec1 = SiteVector::from_index(m, nx, ny);
-    let vec2 = SiteVector::from_index(n, nx, ny);
+pub fn gamma(nx: Dim, ny: Dim, s1: BinaryBasis, s2: BinaryBasis) -> Complex<f64> {
+    let m = (s1.raw_int() as f64).log2().round() as i32;
+    let n = (s2.raw_int() as f64).log2().round() as i32;
+    let vec1 = SiteVector::from_index(I(m), nx, ny);
+    let vec2 = SiteVector::from_index(I(n), nx, ny);
     let ang = vec1.angle_with(&vec2);
 
     Complex::from_polar(&1.0, &ang)
@@ -234,80 +218,81 @@ pub fn gamma(nx: u32, ny: u32, s1: BinaryBasis, s2: BinaryBasis) -> Complex<f64>
 
 /// Generate all possible pairs of interacting sites on the lattice according to
 /// the stride l
-pub fn interacting_sites(nx: u32, ny: u32, l: u32) -> (Vec<BinaryBasis>, Vec<BinaryBasis>) {
+pub fn interacting_sites(nx: Dim, ny: Dim, l: I) -> (Vec<BinaryBasis>, Vec<BinaryBasis>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
     let bonds_by_range = generate_bonds(nx, ny);
-    let bonds = &bonds_by_range[l as usize - 1];
+    let bonds = &bonds_by_range[l.raw_int() as usize - 1];
     for bond in bonds.iter() {
         site1.push(bond[0].lattice_index());
         site2.push(bond[1].lattice_index());
     }
 
-    let f = |s: Vec<u32>| s.into_iter()
-                           .map(|s| POW2[s as usize])
+    let f = |s: Vec<I>| s.into_iter()
+                           .map(|s| POW2[s.raw_int() as usize])
                            .collect::<Vec<BinaryBasis>>();
 
     (f(site1), f(site2))
 }
 
-pub fn triangular_vert_sites(nx: u32, ny: u32) -> (Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>) {
+pub fn triangular_vert_sites(nx: Dim, ny: Dim) -> (Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
     let mut site3 = Vec::new();
-    let mut vec = SiteVector::new((0, 0), nx, ny);
+    let mut vec = SiteVector::new((I(0), I(0)), nx, ny);
+    let i = I(1);
 
-    for _ in 0..ny {
-        for _ in 0..nx {
+    for _ in 0..ny.raw_int() {
+        for _ in 0..nx.raw_int() {
             // For ijk in clockwise direction in upright triangle
             let s1 = vec.lattice_index();
-            let s2 = vec.xhop(1).lattice_index();
-            let s3 = vec.xhop(1).yhop(1).lattice_index();
+            let s2 = vec.xhop(i).lattice_index();
+            let s3 = vec.xhop(i).yhop(i).lattice_index();
             site1.push(s1);
             site2.push(s2);
             site3.push(s3);
 
             // For ijk in clockwise direction in inverted triangle
             let s4 = vec.lattice_index();
-            let s5 = vec.xhop(1).lattice_index();
-            let s6 = vec.xhop(1).yhop(-1).lattice_index();
+            let s5 = vec.xhop(i).lattice_index();
+            let s6 = vec.xhop(i).yhop(-i).lattice_index();
             site1.push(s4);
             site2.push(s5);
             site3.push(s6);
 
-            vec = vec.xhop(1);
+            vec = vec.xhop(i);
         }
-        vec = vec.yhop(1);
+        vec = vec.yhop(i);
     }
 
-    let f = |s: Vec<u32>| s.into_iter()
-                           .map(|s| POW2[s as usize])
-                           .collect::<Vec<BinaryBasis>>();
+    let f = |s: Vec<I>| s.into_iter()
+                         .map(|s| POW2[s.raw_int() as usize])
+                         .collect::<Vec<BinaryBasis>>();
 
     (f(site1), f(site2), f(site3))
 }
 
 /// Generate all permutations of the combination of any two sites on the lattice
 /// where l = |i - j| for sites i and j
-pub fn all_sites(nx: u32, ny: u32, l: u32) -> (Vec<BinaryBasis>, Vec<BinaryBasis>) {
-    let mut vec = SiteVector::new((0, 0), nx, ny);
-    let xstride = (l % nx) as i32;
-    let ystride = (l / nx) as i32;
+pub fn all_sites(nx: Dim, ny: Dim, l: I) -> (Vec<BinaryBasis>, Vec<BinaryBasis>) {
+    let mut vec = SiteVector::new((I(0), I(0)), nx, ny);
+    let xstride = l % nx;
+    let ystride = l / nx;
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
-    for _ in 0..ny {
-        for _ in 0..nx {
+    for _ in 0..ny.raw_int() {
+        for _ in 0..nx.raw_int() {
             let s1 = vec.lattice_index();
             let s2 = vec.xhop(xstride).yhop(ystride).lattice_index();
             site1.push(s1);
             site2.push(s2);
-            vec = vec.xhop(1);
+            vec = vec.xhop(I(1));
         }
-        vec = vec.yhop(1);
+        vec = vec.yhop(I(1));
     }
 
-    let f = |s: Vec<u32>| s.into_iter()
-                           .map(|s| POW2[s as usize])
+    let f = |s: Vec<I>| s.into_iter()
+                           .map(|s| POW2[s.raw_int() as usize])
                            .collect::<Vec<BinaryBasis>>();
 
     (f(site1), f(site2))

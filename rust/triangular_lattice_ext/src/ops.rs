@@ -23,7 +23,7 @@ pub fn ss_z_elements(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), orig_state: &
 /// of s+ and s-, the 1/2 is already included in the output
 #[allow(non_snake_case)]
 #[allow(unused)]
-pub fn ss_xy_elements(nx: u32, ny: u32,
+pub fn ss_xy_elements(nx: Dim, ny: Dim,
                       sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>),
                       orig_state: &BlochFunc,
                       dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
@@ -58,7 +58,7 @@ pub fn ss_xy_elements(nx: u32, ny: u32,
 }
 
 #[allow(non_snake_case)]
-pub fn ss_ppmm_elements(nx: u32, ny: u32,
+pub fn ss_ppmm_elements(nx: Dim, ny: Dim,
                         sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>),
                         orig_state: &BlochFunc,
                         dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
@@ -100,7 +100,7 @@ pub fn ss_ppmm_elements(nx: u32, ny: u32,
 }
 
 #[allow(non_snake_case)]
-pub fn ss_pmz_elements(nx: u32, ny: u32,
+pub fn ss_pmz_elements(nx: Dim, ny: Dim,
                        sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>),
                        orig_state: &BlochFunc,
                        dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
@@ -147,7 +147,7 @@ pub fn ss_pmz_elements(nx: u32, ny: u32,
 /// S^+_k). The factor of 1/2 is already included in the output
 #[allow(unused)]
 #[allow(non_snake_case)]
-pub fn ss_chi_elements(nx: u32, ny: u32,
+pub fn ss_chi_elements(nx: Dim, ny: Dim,
               sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>),
               orig_state: &BlochFunc,
               dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
@@ -220,7 +220,7 @@ pub fn ss_z(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), bfuncs: &BlochFuncSet)
     CoordMatrix::new(data, cols, rows, dims, dims)
 }
 
-fn off_diag_ops<T>(element_f: fn(nx: u32, ny: u32,
+fn off_diag_ops<T>(element_f: fn(nx: Dim, ny: Dim,
                                  sites: &T,
                                  orig_state: &BlochFunc,
                                  dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
@@ -232,7 +232,7 @@ fn off_diag_ops<T>(element_f: fn(nx: u32, ny: u32,
     let hashtable = BlochFuncSet::build_dict(&bfuncs);
     let (ind_to_dec, dec_to_ind) = gen_ind_dec_conv_dicts(&bfuncs);
 
-    let alloc_size = dims * (1 + 8 * bfuncs.nx * bfuncs.ny);
+    let alloc_size = dims * (1 + 8 * (bfuncs.nx * bfuncs.ny).raw_int());
     let mut data: Vec<CComplex<f64>> = Vec::with_capacity(alloc_size as usize);
     let mut cols: Vec<u32> = Vec::with_capacity(alloc_size as usize);
     let mut rows: Vec<u32> = Vec::with_capacity(alloc_size as usize);
