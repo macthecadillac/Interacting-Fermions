@@ -311,11 +311,16 @@ class DMRG_Hamiltonian(dmrg.Hamiltonian):
 ### FFI wrapper code for functions implemented in Rust ###
 ##########################################################
 ffi = FFI()
-ldpath = os.path.dirname(__file__)
-with open(os.path.join(ldpath, 'triangular_lattice_ext.h')) as header:
-    ffi.cdef(header.read())
+modpath = os.path.dirname(__file__)
+rootdir = os.path.split(modpath)[0]
+rust_dir = os.path.join(rootdir, "rust", "triangular_lattice_ext")
+with open(os.path.join(rust_dir, "triangular_lattice_ext.h")) as header:
+    # remove directives from header file since cffi can't process directives yet
+    h = [line for line in header.readlines() if not line[0] == "#"]
+    ffi.cdef(''.join(h))
 
-_lib = ffi.dlopen(os.path.join(ldpath, "triangular_lattice_ext.so"))
+_lib = ffi.dlopen(os.path.join(rust_dir, "target", "release",
+                               "libtriangular_lattice_ext.so"))
 
 
 class CoordMatrix:

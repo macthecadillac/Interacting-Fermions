@@ -3,7 +3,6 @@ extern crate libc;
 extern crate num_bigint;
 extern crate num_complex;
 extern crate num_traits;
-extern crate proc_macro;
 
 #[macro_use]
 mod buildtype;

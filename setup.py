@@ -3,11 +3,12 @@ from subprocess import Popen
 import shutil
 import os
 import sys
-import stat
 
 
 # key = module name (the exact name of the cargo project)
 # val = destination of the generated shared object
+# header files must have the same name as the module and be present in the root
+# of the Rust project dir
 rust_modules = {
     "triangular_lattice_ext": "models",
 }
@@ -20,11 +21,6 @@ def build_rust_binary(lib, dest_dir):
     if p.returncode != 0:
         sys.exit("Cargo build failure. Abort.")
     os.chdir("../..")
-    dest = "{}/{}.so".format(dest_dir, lib)
-    shutil.copyfile("rust/{0}/target/release/lib{0}.so".format(lib),
-                    dest)
-    st = os.stat(dest)
-    os.chmod(dest, st.st_mode | stat.S_IEXEC)
 
 
 if shutil.which("cargo"):

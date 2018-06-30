@@ -2,10 +2,14 @@
 name = "triangular_lattice_ext"
 version = "0.1.0"
 authors = ["Mac Lee <macthecadillac@gmail.com>"]
+build = "build.rs"
 
 [lib]
 name = "triangular_lattice_ext"
-crate-type = ["dylib"]
+crate-type = ["cdylib"]
+
+[build-dependencies]
+cbindgen = { git = "https://github.com/eqrion/cbindgen.git", branch = "master" }
 
 [dependencies]
 libc = "0.2"

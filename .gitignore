@@ -11,3 +11,4 @@
 **/*.so
 **/target/*
 **/Cargo.lock
+**/*.h
