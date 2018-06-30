@@ -314,421 +314,412 @@ ffi = FFI()
 modpath = os.path.dirname(__file__)
 rootdir = os.path.split(modpath)[0]
 rust_dir = os.path.join(rootdir, "rust", "triangular_lattice_ext")
-with open(os.path.join(rust_dir, "triangular_lattice_ext.h")) as header:
-    # remove directives from header file since cffi can't process directives yet
-    h = [line for line in header.readlines() if not line[0] == "#"]
-    ffi.cdef(''.join(h))
 
-_lib = ffi.dlopen(os.path.join(rust_dir, "target", "release",
-                               "libtriangular_lattice_ext.so"))
+# Only define the following functions if the shared object is compiled or else
+# Python is going to throw exceptions on import.
+# The header file only exists if the Rust shared object is compiled.
+if os.path.exists(os.path.join(rust_dir, "triangular_lattice_ext.h")):
+    with open(os.path.join(rust_dir, "triangular_lattice_ext.h")) as header:
+        # remove directives from header file since cffi can't process directives yet
+        h = [line for line in header.readlines() if not line[0] == "#"]
+        ffi.cdef(''.join(h))
 
+    _lib = ffi.dlopen(os.path.join(rust_dir, "target", "release",
+                                   "libtriangular_lattice_ext.so"))
 
-class CoordMatrix:
-    """A class that encapsulates the matrix and provides methods that would
-    help memoery management across the FFI boundary
-    """
+    class CoordMatrix:
+        """A class that encapsulates the matrix and provides methods that would
+        help memoery management across the FFI boundary
+        """
 
-    def __init__(self, mat):
-        """Initializer
+        def __init__(self, mat):
+            """Initializer
+
+            Parameters
+            --------------------
+            mat: CoordMatrix
+            """
+            self.__obj = mat  # the pointer to the pointers to the arrays
+            self.data = np.frombuffer(ffi.buffer(mat.data.ptr, mat.data.len * 16),
+                                      np.complex128)
+            self.col = np.frombuffer(ffi.buffer(mat.col.ptr, mat.col.len * 4),
+                                     np.int32)
+            self.row = np.frombuffer(ffi.buffer(mat.row.ptr, mat.row.len * 4),
+                                     np.int32)
+            self.ncols = mat.ncols
+            self.nrows = mat.nrows
+
+        def __enter__(self):
+            """For use with context manager"""
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            """For use with context manager"""
+            self.data = None
+            self.col = None
+            self.row = None
+            _lib.request_free(self.__obj)   # deallocates Rust object
+            self.__obj = None
+
+        def to_csc(self):
+            """Returns a CSC matrix"""
+            return sparse.csc_matrix((self.data, (self.col, self.row)),
+                                     shape=(self.nrows, self.ncols))
+
+        def to_csr(self):
+            """Returns a CSR matrix"""
+            return sparse.csr_matrix((self.data, (self.col, self.row)),
+                                     shape=(self.nrows, self.ncols))
+
+    def h_ss_z_consv_k(Nx, Ny, kx, ky, l):
+        """construct the H_z matrix in the given momentum configuration
 
         Parameters
         --------------------
-        mat: CoordMatrix
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        l:  int
+
+        Returns
+        --------------------
+        H: scipy.sparse.csr_matrix
         """
-        self.__obj = mat  # the pointer to the pointers to the arrays
-        self.data = np.frombuffer(ffi.buffer(mat.data.ptr, mat.data.len * 16),
-                                  np.complex128)
-        self.col = np.frombuffer(ffi.buffer(mat.col.ptr, mat.col.len * 4),
-                                 np.int32)
-        self.row = np.frombuffer(ffi.buffer(mat.row.ptr, mat.row.len * 4),
-                                 np.int32)
-        self.ncols = mat.ncols
-        self.nrows = mat.nrows
+        mat = _lib.k_h_ss_z(Nx, Ny, kx, ky, l)
+        with CoordMatrix(mat) as coordmat:
+            H = coordmat.to_csr()
+        return H
 
-    def __enter__(self):
-        """For use with context manager"""
-        return self
+    def h_ss_xy_consv_k(Nx, Ny, kx, ky, l):
+        """construct the H_xy matrix in the given momentum configuration
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        """For use with context manager"""
-        self.data = None
-        self.col = None
-        self.row = None
-        _lib.request_free(self.__obj)   # deallocates Rust object
-        self.__obj = None
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        l:  int
 
-    def to_csc(self):
-        """Returns a CSC matrix"""
-        return sparse.csc_matrix((self.data, (self.col, self.row)),
-                                 shape=(self.nrows, self.ncols))
+        Returns
+        --------------------
+        H: scipy.sparse.csr_matrix
+        """
+        mat = _lib.k_h_ss_xy(Nx, Ny, kx, ky, l)
+        with CoordMatrix(mat) as coordmat:
+            H = coordmat.to_csr()
+        return H
 
-    def to_csr(self):
-        """Returns a CSR matrix"""
-        return sparse.csr_matrix((self.data, (self.col, self.row)),
-                                 shape=(self.nrows, self.ncols))
+    def h_ss_ppmm_consv_k(Nx, Ny, kx, ky, l):
+        """construct the H_ppmm matrix in the given momentum configuration
 
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        l:  int
 
-def h_ss_z_consv_k(Nx, Ny, kx, ky, l):
-    """construct the H_z matrix in the given momentum configuration
+        Returns
+        --------------------
+        H: scipy.sparse.csr_matrix
+        """
+        mat = _lib.k_h_ss_ppmm(Nx, Ny, kx, ky, l)
+        with CoordMatrix(mat) as coordmat:
+            H = coordmat.to_csr()
+        return H
 
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    l:  int
+    def h_ss_pmz_consv_k(Nx, Ny, kx, ky, l):
+        """construct the H_pmz matrix in the given momentum configuration
 
-    Returns
-    --------------------
-    H: scipy.sparse.csr_matrix
-    """
-    mat = _lib.k_h_ss_z(Nx, Ny, kx, ky, l)
-    with CoordMatrix(mat) as coordmat:
-        H = coordmat.to_csr()
-    return H
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        l:  int
 
+        Returns
+        --------------------
+        H: scipy.sparse.csr_matrix
+        """
+        mat = _lib.k_h_ss_pmz(Nx, Ny, kx, ky, l)
+        with CoordMatrix(mat) as coordmat:
+            H = coordmat.to_csr()
+        return H
 
-def h_ss_xy_consv_k(Nx, Ny, kx, ky, l):
-    """construct the H_xy matrix in the given momentum configuration
+    def h_sss_chi_consv_k(Nx, Ny, kx, ky):
+        """construct the H_chi matrix in the given momentum configuration
 
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    l:  int
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
 
-    Returns
-    --------------------
-    H: scipy.sparse.csr_matrix
-    """
-    mat = _lib.k_h_ss_xy(Nx, Ny, kx, ky, l)
-    with CoordMatrix(mat) as coordmat:
-        H = coordmat.to_csr()
-    return H
+        Returns
+        --------------------
+        H: scipy.sparse.csr_matrix
+        """
+        mat = _lib.k_h_sss_chi(Nx, Ny, kx, ky)
+        with CoordMatrix(mat) as coordmat:
+            H = coordmat.to_csr()
+        return H
 
+    def h_ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
+        """construct the H_z matrix in the given momentum configuration
 
-def h_ss_ppmm_consv_k(Nx, Ny, kx, ky, l):
-    """construct the H_ppmm matrix in the given momentum configuration
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        nup: int
+            the total number of sites with a spin-up
+        l:  int
 
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    l:  int
+        Returns
+        --------------------
+        H: scipy.sparse.csr_matrix
+        """
+        mat = _lib.ks_h_ss_z(Nx, Ny, kx, ky, nup, l)
+        with CoordMatrix(mat) as coordmat:
+            H = coordmat.to_csr()
+        return H
 
-    Returns
-    --------------------
-    H: scipy.sparse.csr_matrix
-    """
-    mat = _lib.k_h_ss_ppmm(Nx, Ny, kx, ky, l)
-    with CoordMatrix(mat) as coordmat:
-        H = coordmat.to_csr()
-    return H
+    def h_ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
+        """construct the H_xy matrix in the given momentum configuration
 
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        nup: int
+            the total number of sites with a spin-up
+        l:  int
 
-def h_ss_pmz_consv_k(Nx, Ny, kx, ky, l):
-    """construct the H_pmz matrix in the given momentum configuration
+        Returns
+        --------------------
+        H: scipy.sparse.csr_matrix
+        """
+        mat = _lib.ks_h_ss_xy(Nx, Ny, kx, ky, nup, l)
+        with CoordMatrix(mat) as coordmat:
+            H = coordmat.to_csr()
+        return H
 
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    l:  int
+    def h_sss_chi_consv_k_s(Nx, Ny, kx, ky, nup):
+        """construct the H_chi matrix in the given momentum configuration
 
-    Returns
-    --------------------
-    H: scipy.sparse.csr_matrix
-    """
-    mat = _lib.k_h_ss_pmz(Nx, Ny, kx, ky, l)
-    with CoordMatrix(mat) as coordmat:
-        H = coordmat.to_csr()
-    return H
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        nup: int
 
+        Returns
+        --------------------
+        H: scipy.sparse.csr_matrix
+        """
+        mat = _lib.ks_h_sss_chi(Nx, Ny, kx, ky, nup)
+        with CoordMatrix(mat) as coordmat:
+            H = coordmat.to_csr()
+        return H
 
-def h_sss_chi_consv_k(Nx, Ny, kx, ky):
-    """construct the H_chi matrix in the given momentum configuration
+    def ss_z_consv_k(Nx, Ny, kx, ky, l):
+        """construct the Σsz_i * sz_j operators with the given separation
+        with translational symmetry taken into account
 
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Ny / 2π in a [0, 2π)
+            Brillouin zone
+        l:  int
+            the separation between sites: |i - j|
 
-    Returns
-    --------------------
-    H: scipy.sparse.csr_matrix
-    """
-    mat = _lib.k_h_sss_chi(Nx, Ny, kx, ky)
-    with CoordMatrix(mat) as coordmat:
-        H = coordmat.to_csr()
-    return H
+        Returns
+        --------------------
+        ss_z: scipy.sparse.csr_matrix
+        """
+        mat = _lib.k_ss_z(Nx, Ny, kx, ky, l)
+        with CoordMatrix(mat) as coordmat:
+            op = coordmat.to_csr()
+        return op
 
+    def ss_xy_consv_k(Nx, Ny, kx, ky, l):
+        """construct the Σ(sx_i * sx_j + sy_i * sy_j) operators with the given
+        separation with translational symmetry taken into account
 
-def h_ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
-    """construct the H_z matrix in the given momentum configuration
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Ny / 2π in a [0, 2π)
+            Brillouin zone
+        l:  int
+            the separation between sites: |i - j|
 
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    nup: int
-        the total number of sites with a spin-up
-    l:  int
+        Returns
+        --------------------
+        ss_xy: scipy.sparse.csr_matrix
+        """
+        mat = _lib.k_ss_xy(Nx, Ny, kx, ky, l)
+        with CoordMatrix(mat) as coordmat:
+            op = coordmat.to_csr()
+        return op
 
-    Returns
-    --------------------
-    H: scipy.sparse.csr_matrix
-    """
-    mat = _lib.ks_h_ss_z(Nx, Ny, kx, ky, nup, l)
-    with CoordMatrix(mat) as coordmat:
-        H = coordmat.to_csr()
-    return H
+    def ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
+        """construct the Σsz_i * sz_j operators with the given separation
+        with translational symmetry taken into account
 
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Ny / 2π in a [0, 2π)
+            Brillouin zone
+        nup: int
+            the total number of sites with a spin-up
+        l:  int
+            the separation between sites: |i - j|
 
-def h_ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
-    """construct the H_xy matrix in the given momentum configuration
+        Returns
+        --------------------
+        ss_z: scipy.sparse.csr_matrix
+        """
+        mat = _lib.ks_ss_z(Nx, Ny, kx, ky, nup, l)
+        with CoordMatrix(mat) as coordmat:
+            op = coordmat.to_csr()
+        return op
 
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    nup: int
-        the total number of sites with a spin-up
-    l:  int
+    def ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
+        """construct the Σ(sx_i * sx_j + sy_i * sy_j) operators with the given
+        separation with translational symmetry taken into account
 
-    Returns
-    --------------------
-    H: scipy.sparse.csr_matrix
-    """
-    mat = _lib.ks_h_ss_xy(Nx, Ny, kx, ky, nup, l)
-    with CoordMatrix(mat) as coordmat:
-        H = coordmat.to_csr()
-    return H
+        Parameters
+        --------------------
+        Nx: int
+            lattice length in the x-direction
+        Ny: int
+            lattice length in the y-direction
+        kx: int
+            the x-component of lattice momentum * Nx / 2π in a [0, 2π)
+            Brillouin zone
+        ky: int
+            the y-component of lattice momentum * Ny / 2π in a [0, 2π)
+            Brillouin zone
+        nup: int
+            the total number of sites with a spin-up
+        l:  int
+            the separation between sites: |i - j|
 
+        Returns
+        --------------------
+        ss_xy: scipy.sparse.csr_matrix
+        """
+        mat = _lib.ks_ss_xy(Nx, Ny, kx, ky, nup, l)
+        with CoordMatrix(mat) as coordmat:
+            op = coordmat.to_csr()
+        return op
 
-def h_sss_chi_consv_k_s(Nx, Ny, kx, ky, nup):
-    """construct the H_chi matrix in the given momentum configuration
+    def min_necessary_ks(Nx, Ny):
+        """Returns the momentum that we absolutely need to compute
 
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    nup: int
+        Parameters
+        --------------------
+        Nx: int
+        Ny: int
 
-    Returns
-    --------------------
-    H: scipy.sparse.csr_matrix
-    """
-    mat = _lib.ks_h_sss_chi(Nx, Ny, kx, ky, nup)
-    with CoordMatrix(mat) as coordmat:
-        H = coordmat.to_csr()
-    return H
-
-
-def ss_z_consv_k(Nx, Ny, kx, ky, l):
-    """construct the Σsz_i * sz_j operators with the given separation
-    with translational symmetry taken into account
-
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Ny / 2π in a [0, 2π)
-        Brillouin zone
-    l:  int
-        the separation between sites: |i - j|
-
-    Returns
-    --------------------
-    ss_z: scipy.sparse.csr_matrix
-    """
-    mat = _lib.k_ss_z(Nx, Ny, kx, ky, l)
-    with CoordMatrix(mat) as coordmat:
-        op = coordmat.to_csr()
-    return op
-
-
-def ss_xy_consv_k(Nx, Ny, kx, ky, l):
-    """construct the Σ(sx_i * sx_j + sy_i * sy_j) operators with the given
-    separation with translational symmetry taken into account
-
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Ny / 2π in a [0, 2π)
-        Brillouin zone
-    l:  int
-        the separation between sites: |i - j|
-
-    Returns
-    --------------------
-    ss_xy: scipy.sparse.csr_matrix
-    """
-    mat = _lib.k_ss_xy(Nx, Ny, kx, ky, l)
-    with CoordMatrix(mat) as coordmat:
-        op = coordmat.to_csr()
-    return op
-
-
-def ss_z_consv_k_s(Nx, Ny, kx, ky, nup, l):
-    """construct the Σsz_i * sz_j operators with the given separation
-    with translational symmetry taken into account
-
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Ny / 2π in a [0, 2π)
-        Brillouin zone
-    nup: int
-        the total number of sites with a spin-up
-    l:  int
-        the separation between sites: |i - j|
-
-    Returns
-    --------------------
-    ss_z: scipy.sparse.csr_matrix
-    """
-    mat = _lib.ks_ss_z(Nx, Ny, kx, ky, nup, l)
-    with CoordMatrix(mat) as coordmat:
-        op = coordmat.to_csr()
-    return op
-
-
-def ss_xy_consv_k_s(Nx, Ny, kx, ky, nup, l):
-    """construct the Σ(sx_i * sx_j + sy_i * sy_j) operators with the given
-    separation with translational symmetry taken into account
-
-    Parameters
-    --------------------
-    Nx: int
-        lattice length in the x-direction
-    Ny: int
-        lattice length in the y-direction
-    kx: int
-        the x-component of lattice momentum * Nx / 2π in a [0, 2π)
-        Brillouin zone
-    ky: int
-        the y-component of lattice momentum * Ny / 2π in a [0, 2π)
-        Brillouin zone
-    nup: int
-        the total number of sites with a spin-up
-    l:  int
-        the separation between sites: |i - j|
-
-    Returns
-    --------------------
-    ss_xy: scipy.sparse.csr_matrix
-    """
-    mat = _lib.ks_ss_xy(Nx, Ny, kx, ky, nup, l)
-    with CoordMatrix(mat) as coordmat:
-        op = coordmat.to_csr()
-    return op
-
-
-def min_necessary_ks(Nx, Ny):
-    """Returns the momentum that we absolutely need to compute
-
-    Parameters
-    --------------------
-    Nx: int
-    Ny: int
-
-    Returns
-    --------------------
-    list of ints
-    """
-    ks = []
-    arrs = []
-    for kx in range(Nx):
-        for ky in range(Ny):
-            arr = np.outer(np.exp(2j * np.pi * kx * np.arange(Nx) / Nx),
-                           np.exp(2j * np.pi * ky * np.arange(Ny) / Ny))
-            for arr0 in arrs:
-                if np.allclose(arr0, arr) or np.allclose(arr0, arr.conjugate()):
-                    break
-            else:
-                ks.append((kx, ky))
-                arrs.append(arr)
-    return ks
+        Returns
+        --------------------
+        list of ints
+        """
+        ks = []
+        arrs = []
+        for kx in range(Nx):
+            for ky in range(Ny):
+                arr = np.outer(np.exp(2j * np.pi * kx * np.arange(Nx) / Nx),
+                               np.exp(2j * np.pi * ky * np.arange(Ny) / Ny))
+                for arr0 in arrs:
+                    if np.allclose(arr0, arr) or np.allclose(arr0, arr.conjugate()):
+                        break
+                else:
+                    ks.append((kx, ky))
+                    arrs.append(arr)
+        return ks
