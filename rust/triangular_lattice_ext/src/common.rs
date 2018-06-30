@@ -1,98 +1,124 @@
-use std::mem;
-use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign,
-               Rem, RemAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign,
-               Neg};
-use std::cmp::Ordering;
+use fnv::FnvHashMap;
 use libc::size_t;
 use num_complex::Complex;
-use fnv::FnvHashMap;
+use std::{
+    cmp::Ordering,
+    mem,
+    ops::{
+        Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, DivAssign,
+        Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign
+    }
+};
 
-use sitevector::SiteVector;
 use blochfunc::{BlochFunc, BlochFuncSet};
+use sitevector::SiteVector;
 
 pub const PI: f64 = 3.1415926535897932384626433832795028841971;
-pub const POW2: [BinaryBasis; 63] = [
-    BinaryBasis(1), BinaryBasis(2), BinaryBasis(4), BinaryBasis(8),
-    BinaryBasis(16), BinaryBasis(32), BinaryBasis(64), BinaryBasis(128),
-    BinaryBasis(256), BinaryBasis(512), BinaryBasis(1024), BinaryBasis(2048),
-    BinaryBasis(4096), BinaryBasis(8192), BinaryBasis(16384),
-    BinaryBasis(32768), BinaryBasis(65536), BinaryBasis(131072),
-    BinaryBasis(262144), BinaryBasis(524288), BinaryBasis(1048576),
-    BinaryBasis(2097152), BinaryBasis(4194304), BinaryBasis(8388608),
-    BinaryBasis(16777216), BinaryBasis(33554432), BinaryBasis(67108864),
-    BinaryBasis(134217728), BinaryBasis(268435456), BinaryBasis(536870912),
-    BinaryBasis(1073741824), BinaryBasis(2147483648), BinaryBasis(4294967296),
-    BinaryBasis(8589934592), BinaryBasis(17179869184), BinaryBasis(34359738368),
-    BinaryBasis(68719476736), BinaryBasis(137438953472),
-    BinaryBasis(274877906944), BinaryBasis(549755813888),
-    BinaryBasis(1099511627776), BinaryBasis(2199023255552),
-    BinaryBasis(4398046511104), BinaryBasis(8796093022208),
-    BinaryBasis(17592186044416), BinaryBasis(35184372088832),
-    BinaryBasis(70368744177664), BinaryBasis(140737488355328),
-    BinaryBasis(281474976710656), BinaryBasis(562949953421312),
-    BinaryBasis(1125899906842624), BinaryBasis(2251799813685248),
-    BinaryBasis(4503599627370496), BinaryBasis(9007199254740992),
-    BinaryBasis(18014398509481984), BinaryBasis(36028797018963968),
-    BinaryBasis(72057594037927936), BinaryBasis(144115188075855872),
-    BinaryBasis(288230376151711744), BinaryBasis(576460752303423488),
-    BinaryBasis(1152921504606846976), BinaryBasis(2305843009213693952),
-    BinaryBasis(4611686018427387904)
-];
+pub const POW2: [BinaryBasis; 63] = [BinaryBasis(1),
+                                     BinaryBasis(2),
+                                     BinaryBasis(4),
+                                     BinaryBasis(8),
+                                     BinaryBasis(16),
+                                     BinaryBasis(32),
+                                     BinaryBasis(64),
+                                     BinaryBasis(128),
+                                     BinaryBasis(256),
+                                     BinaryBasis(512),
+                                     BinaryBasis(1024),
+                                     BinaryBasis(2048),
+                                     BinaryBasis(4096),
+                                     BinaryBasis(8192),
+                                     BinaryBasis(16384),
+                                     BinaryBasis(32768),
+                                     BinaryBasis(65536),
+                                     BinaryBasis(131072),
+                                     BinaryBasis(262144),
+                                     BinaryBasis(524288),
+                                     BinaryBasis(1048576),
+                                     BinaryBasis(2097152),
+                                     BinaryBasis(4194304),
+                                     BinaryBasis(8388608),
+                                     BinaryBasis(16777216),
+                                     BinaryBasis(33554432),
+                                     BinaryBasis(67108864),
+                                     BinaryBasis(134217728),
+                                     BinaryBasis(268435456),
+                                     BinaryBasis(536870912),
+                                     BinaryBasis(1073741824),
+                                     BinaryBasis(2147483648),
+                                     BinaryBasis(4294967296),
+                                     BinaryBasis(8589934592),
+                                     BinaryBasis(17179869184),
+                                     BinaryBasis(34359738368),
+                                     BinaryBasis(68719476736),
+                                     BinaryBasis(137438953472),
+                                     BinaryBasis(274877906944),
+                                     BinaryBasis(549755813888),
+                                     BinaryBasis(1099511627776),
+                                     BinaryBasis(2199023255552),
+                                     BinaryBasis(4398046511104),
+                                     BinaryBasis(8796093022208),
+                                     BinaryBasis(17592186044416),
+                                     BinaryBasis(35184372088832),
+                                     BinaryBasis(70368744177664),
+                                     BinaryBasis(140737488355328),
+                                     BinaryBasis(281474976710656),
+                                     BinaryBasis(562949953421312),
+                                     BinaryBasis(1125899906842624),
+                                     BinaryBasis(2251799813685248),
+                                     BinaryBasis(4503599627370496),
+                                     BinaryBasis(9007199254740992),
+                                     BinaryBasis(18014398509481984),
+                                     BinaryBasis(36028797018963968),
+                                     BinaryBasis(72057594037927936),
+                                     BinaryBasis(144115188075855872),
+                                     BinaryBasis(288230376151711744),
+                                     BinaryBasis(576460752303423488),
+                                     BinaryBasis(1152921504606846976),
+                                     BinaryBasis(2305843009213693952),
+                                     BinaryBasis(4611686018427387904)];
 
 make_int_type!(BinaryBasis, u64);
 make_int_type!(Dim, u32);
 make_int_type!(I, i32);
+make_int_type!(K, u32);
 
 impl Neg for I {
     type Output = Self;
 
-    fn neg(self) -> Self {
-        I(-self.0)
-    }
+    fn neg(self) -> Self { I(-self.0) }
 }
 
 impl Add<Dim> for I {
     type Output = Self;
 
-    fn add(self, rhs: Dim) -> Self {
-        I(self.0 + rhs.0 as i32)
-    }
+    fn add(self, rhs: Dim) -> Self { I(self.0 + rhs.0 as i32) }
 }
 
 impl AddAssign<Dim> for I {
-    fn add_assign(&mut self, rhs: Dim) {
-        *self = I(self.0 + rhs.0 as i32)
-    }
+    fn add_assign(&mut self, rhs: Dim) { *self = I(self.0 + rhs.0 as i32) }
 }
 
 impl Mul<Dim> for I {
     type Output = Self;
 
-    fn mul(self, rhs: Dim) -> Self {
-        I(self.0 * rhs.0 as i32)
-    }
+    fn mul(self, rhs: Dim) -> Self { I(self.0 * rhs.0 as i32) }
 }
 
 impl Rem<Dim> for I {
     type Output = Self;
 
-    fn rem(self, rhs: Dim) -> Self {
-        I(self.0 % rhs.0 as i32)
-    }
+    fn rem(self, rhs: Dim) -> Self { I(self.0 % rhs.0 as i32) }
 }
 
 impl RemAssign<Dim> for I {
-    fn rem_assign(&mut self, rhs: Dim) {
-        *self = I(self.0 % rhs.0 as i32)
-    }
+    fn rem_assign(&mut self, rhs: Dim) { *self = I(self.0 % rhs.0 as i32) }
 }
 
 impl Div<Dim> for I {
     type Output = Self;
 
-    fn div(self, rhs: Dim) -> Self {
-        I(self.0 / rhs.0 as i32)
-    }
+    fn div(self, rhs: Dim) -> Self { I(self.0 / rhs.0 as i32) }
 }
 
 // c compatible complex type for export to numpy at the end
@@ -117,23 +143,22 @@ pub struct Vector<T> {
 }
 
 impl<T> Vector<T> {
-    fn new(ptr: *mut T, len: size_t) -> Vector<T> {
-        Vector { ptr, len }
-    }
+    fn new(ptr: *mut T, len: size_t) -> Vector<T> { Vector { ptr, len } }
 }
 
 #[repr(C)]
 pub struct CoordMatrix<T> {
-    pub data: Vector<T>,
-    pub col: Vector<u32>,
-    pub row: Vector<u32>,
+    pub data:  Vector<T>,
+    pub col:   Vector<u32>,
+    pub row:   Vector<u32>,
     pub ncols: u32,
     pub nrows: u32
 }
 
 impl<T> CoordMatrix<T> {
     pub fn new(mut data: Vec<T>, mut col: Vec<u32>, mut row: Vec<u32>,
-               ncols: u32, nrows: u32) -> CoordMatrix<T> {
+               ncols: u32, nrows: u32)
+               -> CoordMatrix<T> {
         let data_ptr = data.as_mut_ptr();
         let data_len = data.len() as size_t;
 
@@ -149,16 +174,23 @@ impl<T> CoordMatrix<T> {
         let data = Vector::new(data_ptr, data_len);
         let col = Vector::new(col_ptr, col_len);
         let row = Vector::new(row_ptr, row_len);
-        CoordMatrix { data, col, row, ncols, nrows }
+        CoordMatrix { data,
+                      col,
+                      row,
+                      ncols,
+                      nrows }
     }
 }
 
 pub fn translate_x(dec: BinaryBasis, nx: Dim, ny: Dim) -> BinaryBasis {
-    let n = (0..ny.raw_int()).map(|x| x * nx.raw_int()).collect::<Vec<u32>>();
+    let n = (0..ny.raw_int()).map(|x| x * nx.raw_int())
+                             .collect::<Vec<u32>>();
     let s = n.iter()
              .map(|&x| dec % POW2[(x + nx.raw_int()) as usize] / POW2[x as usize])
-             .map(|x| (x * BinaryBasis(2)) % POW2[nx.raw_int() as usize] +
-                       x / POW2[nx.raw_int() as usize - 1]);
+             .map(|x| {
+                      (x * BinaryBasis(2)) % POW2[nx.raw_int() as usize]
+                      + x / POW2[nx.raw_int() as usize - 1]
+                  });
 
     n.iter().map(|&x| POW2[x as usize])
      .zip(s)
@@ -173,13 +205,15 @@ pub fn translate_y(dec: BinaryBasis, nx: Dim, ny: Dim) -> BinaryBasis {
     dec / xdim + tail * pred_totdim
 }
 
-pub fn exchange_spin_flips(dec: BinaryBasis, s1: BinaryBasis, s2: BinaryBasis) -> (bool, bool) {
+pub fn exchange_spin_flips(dec: BinaryBasis, s1: BinaryBasis, s2: BinaryBasis)
+                           -> (bool, bool) {
     let updown = (dec | s1 == dec) && (dec | s2 != dec);
     let downup = (dec | s1 != dec) && (dec | s2 == dec);
     (updown, downup)
 }
 
-pub fn repeated_spins(dec: BinaryBasis, s1: BinaryBasis, s2: BinaryBasis) -> (bool, bool) {
+pub fn repeated_spins(dec: BinaryBasis, s1: BinaryBasis, s2: BinaryBasis)
+                      -> (bool, bool) {
     let upup = (dec | s1 == dec) && (dec | s2 == dec);
     let downdown = (dec | s1 != dec) && (dec | s2 != dec);
     (upup, downdown)
@@ -218,7 +252,8 @@ pub fn gamma(nx: Dim, ny: Dim, s1: BinaryBasis, s2: BinaryBasis) -> Complex<f64>
 
 /// Generate all possible pairs of interacting sites on the lattice according to
 /// the stride l
-pub fn interacting_sites(nx: Dim, ny: Dim, l: I) -> (Vec<BinaryBasis>, Vec<BinaryBasis>) {
+pub fn interacting_sites(nx: Dim, ny: Dim, l: I)
+                         -> (Vec<BinaryBasis>, Vec<BinaryBasis>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
     let bonds_by_range = generate_bonds(nx, ny);
@@ -228,14 +263,17 @@ pub fn interacting_sites(nx: Dim, ny: Dim, l: I) -> (Vec<BinaryBasis>, Vec<Binar
         site2.push(bond[1].lattice_index());
     }
 
-    let f = |s: Vec<I>| s.into_iter()
-                           .map(|s| POW2[s.raw_int() as usize])
-                           .collect::<Vec<BinaryBasis>>();
+    let f = |s: Vec<I>| {
+        s.into_iter().map(|s| POW2[s.raw_int() as usize])
+         .collect::<Vec<BinaryBasis>>()
+    };
 
     (f(site1), f(site2))
 }
 
-pub fn triangular_vert_sites(nx: Dim, ny: Dim) -> (Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>) {
+pub fn triangular_vert_sites(
+    nx: Dim, ny: Dim)
+    -> (Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
     let mut site3 = Vec::new();
@@ -265,9 +303,10 @@ pub fn triangular_vert_sites(nx: Dim, ny: Dim) -> (Vec<BinaryBasis>, Vec<BinaryB
         vec = vec.yhop(i);
     }
 
-    let f = |s: Vec<I>| s.into_iter()
-                         .map(|s| POW2[s.raw_int() as usize])
-                         .collect::<Vec<BinaryBasis>>();
+    let f = |s: Vec<I>| {
+        s.into_iter().map(|s| POW2[s.raw_int() as usize])
+         .collect::<Vec<BinaryBasis>>()
+    };
 
     (f(site1), f(site2), f(site3))
 }
@@ -291,45 +330,44 @@ pub fn all_sites(nx: Dim, ny: Dim, l: I) -> (Vec<BinaryBasis>, Vec<BinaryBasis>)
         vec = vec.yhop(I(1));
     }
 
-    let f = |s: Vec<I>| s.into_iter()
-                           .map(|s| POW2[s.raw_int() as usize])
-                           .collect::<Vec<BinaryBasis>>();
+    let f = |s: Vec<I>| {
+        s.into_iter().map(|s| POW2[s.raw_int() as usize])
+         .collect::<Vec<BinaryBasis>>()
+    };
 
     (f(site1), f(site2))
 }
 
 pub fn find_leading_state<'a>(dec: BinaryBasis,
-                              hashtable: &'a FnvHashMap<&BinaryBasis, &BlochFunc>
-                              ) -> Option<(&'a BlochFunc, Complex<f64>)> {
-
+                              hashtable: &'a FnvHashMap<&BinaryBasis, &BlochFunc>)
+                              -> Option<(&'a BlochFunc, Complex<f64>)> {
     match hashtable.get(&dec) {
         None => None,
         Some(&cntd_state) => match cntd_state.decs.get(&dec) {
-            None     => None,
+            None => None,
             Some(&p) => {
                 let mut phase = p.conj();
                 phase /= phase.norm();
                 Some((cntd_state, phase))
-            },
+            }
         }
     }
 }
 
-pub fn gen_ind_dec_conv_dicts<'a>(bfuncs: &'a BlochFuncSet)
+pub fn gen_ind_dec_conv_dicts<'a>(
+    bfuncs: &'a BlochFuncSet)
     -> (FnvHashMap<u32, &'a BlochFunc>, FnvHashMap<BinaryBasis, u32>) {
-    let dec = bfuncs.iter()
-        .map(|x| x.lead)
-        .collect::<Vec<_>>();
+    let dec = bfuncs.iter().map(|x| x.lead).collect::<Vec<_>>();
     let nstates = dec.len();
     let inds = (0..nstates as u32).collect::<Vec<u32>>();
 
     // build the hashtables
     let dec_to_ind = dec.into_iter()
-        .zip(inds.clone())
-        .collect::<FnvHashMap<BinaryBasis, u32>>();
+                        .zip(inds.clone())
+                        .collect::<FnvHashMap<BinaryBasis, u32>>();
     let ind_to_dec = inds.into_iter()
-        .zip(bfuncs.iter())
-        .collect::<FnvHashMap<u32, &BlochFunc>>();
+                         .zip(bfuncs.iter())
+                         .collect::<FnvHashMap<u32, &BlochFunc>>();
 
     (ind_to_dec, dec_to_ind)
 }

@@ -11,105 +11,75 @@ macro_rules! make_int_type {
         impl BitAnd for $n {
             type Output = Self;
 
-            fn bitand(self, rhs: Self) -> Self {
-                $n(self.0 & rhs.0)
-            }
+            fn bitand(self, rhs: Self) -> Self { $n(self.0 & rhs.0) }
         }
 
         impl BitAndAssign for $n {
-            fn bitand_assign(&mut self, rhs: Self) {
-                *self = $n(self.0 & rhs.0)
-            }
+            fn bitand_assign(&mut self, rhs: Self) { *self = $n(self.0 & rhs.0) }
         }
 
         impl BitOr for $n {
             type Output = Self;
 
-            fn bitor(self, rhs: Self) -> Self {
-                $n(self.0 | rhs.0)
-            }
+            fn bitor(self, rhs: Self) -> Self { $n(self.0 | rhs.0) }
         }
 
         impl BitOrAssign for $n {
-            fn bitor_assign(&mut self, rhs: Self) {
-                *self = $n(self.0 | rhs.0)
-            }
+            fn bitor_assign(&mut self, rhs: Self) { *self = $n(self.0 | rhs.0) }
         }
 
         impl Add for $n {
             type Output = Self;
 
-            fn add(self, rhs: Self) -> Self {
-                $n(self.0 + rhs.0)
-            }
+            fn add(self, rhs: Self) -> Self { $n(self.0 + rhs.0) }
         }
 
         impl AddAssign for $n {
-            fn add_assign(&mut self, rhs: Self) {
-                *self = $n(self.0 + rhs.0)
-            }
+            fn add_assign(&mut self, rhs: Self) { *self = $n(self.0 + rhs.0) }
         }
 
         impl Sub for $n {
             type Output = Self;
 
-            fn sub(self, rhs:Self) -> Self {
-                $n(self.0 - rhs.0)
-            }
+            fn sub(self, rhs: Self) -> Self { $n(self.0 - rhs.0) }
         }
 
         impl SubAssign for $n {
-            fn sub_assign(&mut self, rhs: Self) {
-                *self = $n(self.0 - rhs.0)
-            }
+            fn sub_assign(&mut self, rhs: Self) { *self = $n(self.0 - rhs.0) }
         }
 
         impl Mul for $n {
             type Output = Self;
 
-            fn mul(self, rhs: Self) -> Self {
-                $n(self.0 * rhs.0)
-            }
+            fn mul(self, rhs: Self) -> Self { $n(self.0 * rhs.0) }
         }
 
         impl MulAssign for $n {
-            fn mul_assign(&mut self, rhs: Self) {
-                *self = $n(self.0 * rhs.0)
-            }
+            fn mul_assign(&mut self, rhs: Self) { *self = $n(self.0 * rhs.0) }
         }
 
         impl Div for $n {
             type Output = Self;
 
-            fn div(self, rhs: Self) -> Self {
-                $n(self.0 / rhs.0)
-            }
+            fn div(self, rhs: Self) -> Self { $n(self.0 / rhs.0) }
         }
 
         impl DivAssign for $n {
-            fn div_assign(&mut self, rhs: Self) {
-                *self = $n(self.0 / rhs.0)
-            }
+            fn div_assign(&mut self, rhs: Self) { *self = $n(self.0 / rhs.0) }
         }
 
         impl Rem for $n {
             type Output = Self;
 
-            fn rem(self, rhs: Self) -> Self {
-                $n(self.0 % rhs.0)
-            }
+            fn rem(self, rhs: Self) -> Self { $n(self.0 % rhs.0) }
         }
 
         impl RemAssign for $n {
-            fn rem_assign(&mut self, rhs: Self) {
-                *self = $n(self.0 % rhs.0)
-            }
+            fn rem_assign(&mut self, rhs: Self) { *self = $n(self.0 % rhs.0) }
         }
 
         impl Ord for $n {
-            fn cmp(&self, rhs: &Self) -> Ordering {
-                self.0.cmp(&rhs.0)
-            }
+            fn cmp(&self, rhs: &Self) -> Ordering { self.0.cmp(&rhs.0) }
         }
 
         impl PartialOrd for $n {
@@ -117,5 +87,5 @@ macro_rules! make_int_type {
                 Some(self.cmp(rhs))
             }
         }
-    }
+    };
 }

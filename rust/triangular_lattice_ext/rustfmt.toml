@@ -1,0 +1,11 @@
+fn_args_density =  "Compressed"
+fn_single_line = true
+indent_style = "Visual"
+max_width = 85
+merge_imports = true
+struct_field_align_threshold = 20
+struct_lit_single_line = true
+trailing_comma = "Never"
+use_field_init_shorthand = true
+unstable_features = true
+wrap_comments = true

@@ -1,6 +1,6 @@
-use std::cmp::Ordering;
 use fnv::FnvHashMap;
 use num_complex::Complex;
+use std::cmp::Ordering;
 
 use common::{BinaryBasis, Dim};
 
@@ -8,13 +8,11 @@ use common::{BinaryBasis, Dim};
 pub struct BlochFunc {
     pub lead: BinaryBasis,
     pub decs: FnvHashMap<BinaryBasis, Complex<f64>>,
-    pub norm: f64,
+    pub norm: f64
 }
 
 impl Ord for BlochFunc {
-    fn cmp(&self, other: &BlochFunc) -> Ordering {
-        self.lead.cmp(&other.lead)
-    }
+    fn cmp(&self, other: &BlochFunc) -> Ordering { self.lead.cmp(&other.lead) }
 }
 
 impl PartialOrd for BlochFunc {
@@ -24,37 +22,37 @@ impl PartialOrd for BlochFunc {
 }
 
 impl PartialEq for BlochFunc {
-    fn eq(&self, other: &BlochFunc) -> bool{
-        self.lead == other.lead
-    }
+    fn eq(&self, other: &BlochFunc) -> bool { self.lead == other.lead }
 }
 
 impl Eq for BlochFunc {}
 
 #[derive(Clone, Debug)]
 pub struct BlochFuncSet {
-    pub data: Vec<BlochFunc>,
+    pub data:    Vec<BlochFunc>,
     pub nonzero: u32,
-    pub nx: Dim,
-    pub ny: Dim,
+    pub nx:      Dim,
+    pub ny:      Dim
 }
 
 impl<'a> BlochFuncSet {
     pub fn create(nx: Dim, ny: Dim, bfuncs: Vec<BlochFunc>) -> BlochFuncSet {
         let data = bfuncs;
         let nonzero = data.len() as u32;
-        BlochFuncSet{ data, nonzero, nx, ny }
+        BlochFuncSet { data,
+                       nonzero,
+                       nx,
+                       ny }
     }
 
-    pub fn sort(&mut self) {
-        self.data.sort();
-    }
-    
+    pub fn sort(&mut self) { self.data.sort(); }
+
     pub fn iter(&self) -> BlochFuncSetIterator {
         BlochFuncSetIterator::new(&self.data)
     }
 
-    pub fn build_dict(bfuncs: &BlochFuncSet) -> FnvHashMap<&BinaryBasis, &BlochFunc> {
+    pub fn build_dict(bfuncs: &BlochFuncSet)
+                      -> FnvHashMap<&BinaryBasis, &BlochFunc> {
         let mut hashtable = FnvHashMap::default();
         for bfunc in bfuncs.data.iter() {
             for dec in bfunc.decs.keys() {
@@ -66,8 +64,8 @@ impl<'a> BlochFuncSet {
 }
 
 pub struct BlochFuncSetIterator<'a> {
-    pub ptr: usize,
-    pub len: usize,
+    pub ptr:  usize,
+    pub len:  usize,
     pub data: &'a Vec<BlochFunc>
 }
 

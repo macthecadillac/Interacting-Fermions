@@ -1,34 +1,32 @@
-use common::{PI, I, Dim};
+use common::{Dim, I, PI};
 
 #[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub struct SiteVector {
-    x: I,
-    y: I,
+    x:  I,
+    y:  I,
     nx: Dim,
-    ny: Dim,
+    ny: Dim
 }
 
 impl SiteVector {
-    pub fn lattice_index(&self) -> I {
-        self.x + self.y * self.nx
-    }
+    pub fn lattice_index(&self) -> I { self.x + self.y * self.nx }
 
     pub fn next_site(&self) -> SiteVector {
         let new_index = self.lattice_index() + I(1);
         let new_x = new_index % self.nx;
         let new_y = new_index / self.nx;
-        SiteVector { x: new_x, y: new_y, .. *self }
+        SiteVector { x: new_x,
+                     y: new_y,
+                     ..*self }
     }
 
-    pub fn new(ordered_pair: (I, I), nx: Dim, ny: Dim)
-        -> SiteVector {
+    pub fn new(ordered_pair: (I, I), nx: Dim, ny: Dim) -> SiteVector {
         let x = ordered_pair.0;
         let y = ordered_pair.1;
         SiteVector { x, y, nx, ny }
     }
 
-    pub fn from_index(index: I, nx: Dim, ny: Dim)
-        -> SiteVector {
+    pub fn from_index(index: I, nx: Dim, ny: Dim) -> SiteVector {
         let x = index % nx;
         let y = index / nx;
         SiteVector { x, y, nx, ny }
@@ -43,7 +41,7 @@ impl SiteVector {
             new_x += self.nx;
         }
         new_x %= self.nx;
-        SiteVector { x: new_x, .. *self }
+        SiteVector { x: new_x, ..*self }
     }
 
     pub fn yhop(&self, stride: I) -> SiteVector {
@@ -52,7 +50,7 @@ impl SiteVector {
             new_y += self.ny;
         }
         new_y %= self.ny;
-        SiteVector { y: new_y, .. *self }
+        SiteVector { y: new_y, ..*self }
     }
 }
 
@@ -74,7 +72,7 @@ impl SiteVector {
     pub fn a1_hop(&self, stride: I) -> Option<SiteVector> {
         let vec = self.xhop(stride);
         match vec == *self {
-            true  => None,
+            true => None,
             false => Some(vec)
         }
     }
@@ -82,7 +80,7 @@ impl SiteVector {
     pub fn a2_hop(&self, stride: I) -> Option<SiteVector> {
         let vec = self.xhop(-stride).yhop(stride);
         match vec == *self {
-            true  => None,
+            true => None,
             false => Some(vec)
         }
     }
@@ -90,7 +88,7 @@ impl SiteVector {
     pub fn a3_hop(&self, stride: I) -> Option<SiteVector> {
         let vec = self.yhop(-stride);
         match vec == *self {
-            true  => None,
+            true => None,
             false => Some(vec)
         }
     }
@@ -98,7 +96,7 @@ impl SiteVector {
     pub fn b1_hop(&self, stride: I) -> Option<SiteVector> {
         let vec = self.xhop(stride).yhop(stride);
         match vec == *self {
-            true  => None,
+            true => None,
             false => Some(vec)
         }
     }
@@ -106,7 +104,7 @@ impl SiteVector {
     pub fn b2_hop(&self, stride: I) -> Option<SiteVector> {
         let vec = self.xhop(I(-2) * stride).yhop(stride);
         match vec == *self {
-            true  => None,
+            true => None,
             false => Some(vec)
         }
     }
@@ -115,11 +113,11 @@ impl SiteVector {
     pub fn b3_hop(&self, stride: I) -> Option<SiteVector> {
         let v = self.b1_hop(-stride);
         let vec = match v {
-            None      => None,
+            None => None,
             Some(vec) => match vec.b2_hop(-stride) {
-                None      => None,
+                None => None,
                 Some(vec) => match vec == *self {
-                    true  => None,
+                    true => None,
                     false => Some(vec)
                 }
             }
@@ -127,16 +125,16 @@ impl SiteVector {
         vec
     }
 
-    pub fn _neighboring_sites(&self,
-                              strides: Vec<I>,
-                              funcs: Vec<fn(&SiteVector, I) -> Option<SiteVector>>
-                              ) -> Vec<SiteVector> {
+    pub fn _neighboring_sites(&self, strides: Vec<I>,
+                              funcs: Vec<fn(&SiteVector, I)
+                                   -> Option<SiteVector>>)
+                              -> Vec<SiteVector> {
         let mut neighbors = Vec::new();
         for &stride in strides.iter() {
             for &func in funcs.iter() {
                 match func(self, stride) {
                     Some(vec) => neighbors.push(vec),
-                    None      => ()
+                    None => ()
                 }
             }
         }
@@ -145,32 +143,22 @@ impl SiteVector {
 
     pub fn nearest_neighboring_sites(&self, all: bool) -> Vec<SiteVector> {
         let strides = if all { vec![I(1), I(-1)] } else { vec![I(1)] };
-        let funcs: Vec<fn(&SiteVector, I) -> Option<SiteVector>> = vec![
-            SiteVector::a1_hop,
-            SiteVector::a2_hop,
-            SiteVector::a3_hop
-        ];
+        let funcs: Vec<fn(&SiteVector, I) -> Option<SiteVector>> =
+            vec![SiteVector::a1_hop, SiteVector::a2_hop, SiteVector::a3_hop];
         SiteVector::_neighboring_sites(&self, strides, funcs)
     }
 
     pub fn second_neighboring_sites(&self, all: bool) -> Vec<SiteVector> {
         let strides = if all { vec![I(1), I(-1)] } else { vec![I(1)] };
-        let funcs: Vec<fn(&SiteVector, I) -> Option<SiteVector>> = vec![
-            SiteVector::b1_hop,
-            SiteVector::b2_hop,
-            SiteVector::b3_hop
-        ];
+        let funcs: Vec<fn(&SiteVector, I) -> Option<SiteVector>> =
+            vec![SiteVector::b1_hop, SiteVector::b2_hop, SiteVector::b3_hop];
         SiteVector::_neighboring_sites(&self, strides, funcs)
     }
 
     pub fn third_neighboring_sites(&self, all: bool) -> Vec<SiteVector> {
         let strides = if all { vec![I(2), I(-2)] } else { vec![I(2)] };
-        let funcs: Vec<fn(&SiteVector, I) -> Option<SiteVector>> = vec![
-            SiteVector::a1_hop,
-            SiteVector::a2_hop,
-            SiteVector::a3_hop
-        ];
+        let funcs: Vec<fn(&SiteVector, I) -> Option<SiteVector>> =
+            vec![SiteVector::a1_hop, SiteVector::a2_hop, SiteVector::a3_hop];
         SiteVector::_neighboring_sites(&self, strides, funcs)
     }
 }
-
