@@ -1,5 +1,6 @@
 use fnv::FnvHashMap;
 use libc::size_t;
+use num_bigint::*;
 use num_complex::Complex;
 use std::{
     cmp::Ordering,
@@ -180,6 +181,68 @@ impl<T> CoordMatrix<T> {
                       ncols,
                       nrows }
     }
+}
+
+pub fn permute(mut v: Vec<i32>, lmax: u32) -> Vec<i32> {
+    if v[0] > 0 {
+        v[0] -= 1;
+        v
+    } else {
+        let mut i = 1;
+        while i < v.len() {
+            if v[i] - v[i - 1] > 1 {
+                v[i] -= 1;
+                break;
+            } else {
+                i += 1;
+            }
+        }
+        let mut j = i;
+        if i == v.len() {
+            v[i - 1] = lmax as i32;
+            j -= 1;
+        }
+        while j > 0 {
+            v[j - 1] = v[j] - 1;
+            j -= 1;
+        }
+        v
+    }
+}
+
+pub fn compose(v: &Vec<i32>) -> BinaryBasis {
+    v.iter().fold(BinaryBasis(0), |acc, &x| POW2[x as usize] + acc)
+}
+
+pub fn fac(n: BigUint) -> BigUint {
+    if n == 0_u64.to_biguint().unwrap() {
+        1_u64.to_biguint().unwrap()
+    } else {
+        n.clone() * fac(n.clone() - 1_u64.to_biguint().unwrap())
+    }
+}
+
+pub fn choose(n: Dim, c: u32) -> u64 {
+    let n = n.raw_int().to_biguint().unwrap();
+    let c = c.to_biguint().unwrap();
+    let ncr = fac(n.clone()) / (fac(c.clone()) * fac(n.clone() - c.clone()));
+    ncr.to_bytes_le().iter()
+       .enumerate()
+       .map(|(i, &x)| x as u64 * POW2[i as usize * 8].raw_int())
+       .sum()
+}
+
+pub fn sz_basis(n: Dim, nup: u32) -> Vec<BinaryBasis> {
+    let mut l = (0..nup as i32).collect::<Vec<i32>>();
+    let l_size = choose(n, nup);
+    let mut sz_basis_states: Vec<BinaryBasis> =
+        Vec::with_capacity(l_size as usize);
+    for _ in 0..l_size {
+        l = permute(l, n.raw_int() - 1);
+        let i = compose(&l);
+        sz_basis_states.push(i);
+    }
+    sz_basis_states
 }
 
 pub fn translate_x(dec: BinaryBasis, nx: Dim, ny: Dim) -> BinaryBasis {
@@ -376,6 +439,60 @@ pub fn coeff(orig_state: &BlochFunc, cntd_state: &BlochFunc) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn permute_test1() {
+        let l = vec![3, 4, 5, 6];
+        let ans = vec![2, 4, 5, 6];
+        assert_eq!(permute(l, 7), ans);
+    }
+
+    #[test]
+    fn permute_test2() {
+        let l = vec![0, 1, 4, 5, 6];
+        let ans = vec![1, 2, 3, 5, 6];
+        assert_eq!(permute(l, 9), ans);
+    }
+
+    #[test]
+    fn permute_test3() {
+        let l = vec![0, 1, 2];
+        let ans = vec![3, 4, 5];
+        assert_eq!(permute(l, 5), ans);
+    }
+
+    #[test]
+    fn compose_test1() {
+        let l = vec![0, 1, 2, 3];
+        assert_eq!(compose(&l), BinaryBasis(15));
+    }
+
+    #[test]
+    fn compose_test2() {
+        let l = vec![1, 3, 5];
+        assert_eq!(compose(&l), BinaryBasis(42));
+    }
+
+    #[test]
+    fn choose_test1() {
+        let n = Dim(6);
+        let nup = 3;
+        assert_eq!(choose(n, nup), 20);
+    }
+
+    #[test]
+    fn choose_test2() {
+        let n = Dim(24);
+        let nup = 12;
+        assert_eq!(choose(n, nup), 2704156);
+    }
+
+    #[test]
+    fn sz_basis_test() {
+        let n = Dim(6);
+        let nup = 3;
+        assert_eq!(sz_basis(n, nup).len(), 20);
+    }
 
     #[test]
     fn translate_x_test() {

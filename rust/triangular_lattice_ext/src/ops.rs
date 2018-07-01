@@ -196,11 +196,13 @@ pub fn sss_chi_elements(nx: Dim, ny: Dim,
                     Some((cntd_state, phase)) => {
                         let j = *(dec_to_ind.get(&(cntd_state.lead)).unwrap());
                         let coeff = phase * coeff(&orig_state, &cntd_state);
+
                         let z_contrib = if orig_state.lead | si == orig_state.lead {
                             0.5
                         } else {
                             -0.5
                         };
+
                         let element = match j_element.get(&j) {
                             Some(&c) => c + J * z_contrib * coeff,
                             None => J * z_contrib * coeff
