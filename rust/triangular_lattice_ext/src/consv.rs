@@ -110,6 +110,21 @@ pub mod k {
         let sites = all_sites(nx, ny, l);
         ops::ss_xy(&sites, &bfuncs)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn bloch_states_test() {
+            let nx = Dim(4);
+            let ny = Dim(4);
+            let kx = K(1);
+            let ky = K(3);
+            let bfuncs = bloch_states(nx, ny, kx, ky);
+            assert_eq!(bfuncs.nonzero, 4080);
+        }
+    }
 }
 
 pub mod ks {
@@ -287,5 +302,64 @@ pub mod ks {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = all_sites(nx, ny, l);
         ops::ss_xy(&sites, &bfuncs)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn permute_test1() {
+            let l = vec![3, 4, 5, 6];
+            let ans = vec![2, 4, 5, 6];
+            assert_eq!(permute(l, 7), ans);
+        }
+
+        #[test]
+        fn permute_test2() {
+            let l = vec![0, 1, 4, 5, 6];
+            let ans = vec![1, 2, 3, 5, 6];
+            assert_eq!(permute(l, 9), ans);
+        }
+
+        #[test]
+        fn permute_test3() {
+            let l = vec![0, 1, 2];
+            let ans = vec![3, 4, 5];
+            assert_eq!(permute(l, 5), ans);
+        }
+
+        #[test]
+        fn compose_test1() {
+            let l = vec![0, 1, 2, 3];
+            assert_eq!(compose(&l), BinaryBasis(15));
+        }
+
+        #[test]
+        fn compose_test2() {
+            let l = vec![1, 3, 5];
+            assert_eq!(compose(&l), BinaryBasis(42));
+        }
+
+        #[test]
+        fn choose_test1() {
+            let n = Dim(6);
+            let nup = 3;
+            assert_eq!(choose(n, nup), 20);
+        }
+
+        #[test]
+        fn choose_test2() {
+            let n = Dim(24);
+            let nup = 12;
+            assert_eq!(choose(n, nup), 2704156);
+        }
+
+        #[test]
+        fn sz_basis_test() {
+            let n = Dim(6);
+            let nup = 3;
+            assert_eq!(sz_basis(n, nup).len(), 20);
+        }
     }
 }

@@ -13,9 +13,6 @@ mod consv;
 mod ops;
 mod sitevector;
 
-#[cfg(test)]
-mod tests;
-
 use common::{CComplex, CoordMatrix, Dim, I, K};
 
 // The following functions wrap functions in child modules so they could be

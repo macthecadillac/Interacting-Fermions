@@ -271,36 +271,33 @@ pub fn interacting_sites(nx: Dim, ny: Dim, l: I)
     (f(site1), f(site2))
 }
 
-pub fn triangular_vert_sites(
-    nx: Dim, ny: Dim)
+pub fn triangular_vert_sites(nx: Dim, ny: Dim)
     -> (Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
     let mut site3 = Vec::new();
     let mut vec = SiteVector::new((I(0), I(0)), nx, ny);
     let i = I(1);
+    let n = nx * ny;
 
-    for _ in 0..ny.raw_int() {
-        for _ in 0..nx.raw_int() {
-            // For ijk in clockwise direction in upright triangle
-            let s1 = vec.lattice_index();
-            let s2 = vec.xhop(i).lattice_index();
-            let s3 = vec.xhop(i).yhop(i).lattice_index();
-            site1.push(s1);
-            site2.push(s2);
-            site3.push(s3);
+    for _ in 0..n.raw_int() {
+        // For ijk in clockwise direction in upright triangle
+        let s1 = vec.lattice_index();
+        let s2 = vec.xhop(i).lattice_index();
+        let s3 = vec.yhop(i).lattice_index();
+        site1.push(s1);
+        site2.push(s2);
+        site3.push(s3);
 
-            // For ijk in clockwise direction in inverted triangle
-            let s4 = vec.lattice_index();
-            let s5 = vec.xhop(i).lattice_index();
-            let s6 = vec.xhop(i).yhop(-i).lattice_index();
-            site1.push(s4);
-            site2.push(s5);
-            site3.push(s6);
+        // For ijk in clockwise direction in inverted triangle
+        let s4 = vec.lattice_index();
+        let s5 = vec.xhop(i).lattice_index();
+        let s6 = vec.xhop(i).yhop(-i).lattice_index();
+        site1.push(s4);
+        site2.push(s5);
+        site3.push(s6);
 
-            vec = vec.xhop(i);
-        }
-        vec = vec.yhop(i);
+        vec = vec.next_site();
     }
 
     let f = |s: Vec<I>| {
@@ -374,4 +371,120 @@ pub fn gen_ind_dec_conv_dicts<'a>(
 
 pub fn coeff(orig_state: &BlochFunc, cntd_state: &BlochFunc) -> f64 {
     cntd_state.norm / orig_state.norm
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn translate_x_test() {
+        let d1 = BinaryBasis(10);
+        let d2 = BinaryBasis(5);
+        let nx = Dim(4);
+        let ny = Dim(6);
+        assert_eq!(translate_x(d1, nx, ny), d2);
+    }
+
+    #[test]
+    fn translate_y_test() {
+        let d1 = BinaryBasis(2);
+        let d2 = BinaryBasis(8192);
+        let nx = Dim(4);
+        let ny = Dim(4);
+        assert_eq!(translate_y(d1, nx, ny), d2);
+    }
+
+    #[test]
+    fn exchange_spin_flips_test1() {
+        let dec = BinaryBasis(10);
+        let s1 = BinaryBasis(2);
+        let s2 = BinaryBasis(8);
+        assert_eq!(exchange_spin_flips(dec, s1, s2), (false, false));
+    }
+
+    #[test]
+    fn exchange_spin_flips_test2() {
+        let dec = BinaryBasis(93);
+        let s1 = BinaryBasis(1);
+        let s2 = BinaryBasis(32);
+        assert_eq!(exchange_spin_flips(dec, s1, s2), (true, false));
+    }
+
+    #[test]
+    fn repeated_spins_test1() {
+        let dec = BinaryBasis(93);
+        let s1 = BinaryBasis(1);
+        let s2 = BinaryBasis(32);
+        assert_eq!(repeated_spins(dec, s1, s2), (false, false));
+    }
+
+    #[test]
+    fn repeated_spins_test2() {
+        let dec = BinaryBasis(93);
+        let s1 = BinaryBasis(4);
+        let s2 = BinaryBasis(64);
+        assert_eq!(repeated_spins(dec, s1, s2), (true, false));
+    }
+
+    #[test]
+    fn repeated_spins_test3() {
+        let dec = BinaryBasis(93);
+        let s1 = BinaryBasis(128);
+        let s2 = BinaryBasis(256);
+        assert_eq!(repeated_spins(dec, s1, s2), (false, true));
+    }
+
+    #[test]
+    fn generate_bonds_test1() {
+        let bonds = generate_bonds(Dim(4), Dim(6));
+        assert_eq!(bonds[0].len(), 72);
+        assert_eq!(bonds[1].len(), 72);
+        assert_eq!(bonds[2].len(), 72);
+    }
+
+    #[test]
+    fn generate_bonds_test2() {
+        let bonds = generate_bonds(Dim(6), Dim(6));
+        assert_eq!(bonds[0].len(), 108);
+        assert_eq!(bonds[1].len(), 108);
+        assert_eq!(bonds[2].len(), 108);
+    }
+
+    #[test]
+    fn gamma_test() {
+        let nx = Dim(4);
+        let ny = Dim(3);
+        let s1 = BinaryBasis(32);
+        let s2 = BinaryBasis(256);
+        let gamma = gamma(nx, ny, s1, s2);
+        println!("{}", gamma);
+        assert!((gamma - Complex::new(-0.5, 0.866025403784)).norm() < 1e-8);
+    }
+
+    #[test]
+    fn triangular_vert_sites_test1() {
+        let nx = Dim(3);
+        let ny = Dim(3);
+        let (site1, site2, site3) = triangular_vert_sites(nx, ny);
+
+        let site1_target = vec![0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
+            .into_iter()
+            .map(|x| POW2[x])
+            .collect::<Vec<BinaryBasis>>();
+
+        let site2_target = vec![1, 1, 2, 2, 0, 0, 4, 4, 5, 5, 3, 3, 7, 7, 8, 8, 6, 6]
+            .into_iter()
+            .map(|x| POW2[x])
+            .collect::<Vec<BinaryBasis>>();
+
+        let site3_target = vec![3, 7, 4, 8, 5, 6, 6, 1, 7, 2, 8, 0, 0, 4, 1, 5, 2, 3]
+            .into_iter()
+            .map(|x| POW2[x])
+            .collect::<Vec<BinaryBasis>>();
+
+        assert_eq!(site1, site1_target);
+        assert_eq!(site2, site2_target);
+        assert_eq!(site3, site3_target);
+    }
 }
