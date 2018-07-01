@@ -10,9 +10,6 @@ See <https://www.rust-lang.org/en-US/install.html>.
 Clone the repository into your favorite location. To set up the development
 environment, run `python setup.py develop --user`.
 
-Note: If you changed any Rust code, for your changes to take effect, you need to
-rerun `setup.py`.
-
 ## Usage
 
 Please refer to the docstrings of individual functions and classes.
