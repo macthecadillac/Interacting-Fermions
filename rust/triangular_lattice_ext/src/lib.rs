@@ -8,8 +8,8 @@ extern crate num_traits;
 mod buildtype;
 
 mod blochfunc;
-mod common;
-mod consv;
+pub mod common;
+pub mod consv;
 mod ops;
 mod sitevector;
 
@@ -44,7 +44,7 @@ pub extern "C" fn k_h_ss_pmz(nx: u32, ny: u32, kx: u32, ky: u32, l: u32)
 
 #[no_mangle]
 pub extern "C" fn k_h_sss_chi(nx: u32, ny: u32, kx: u32, ky: u32)
-                             -> CoordMatrix<CComplex<f64>> {
+                              -> CoordMatrix<CComplex<f64>> {
     consv::k::h_sss_chi(Dim(nx), Dim(ny), K(kx), K(ky))
 }
 
@@ -74,7 +74,7 @@ pub extern "C" fn ks_h_ss_xy(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32, l: u3
 
 #[no_mangle]
 pub extern "C" fn ks_h_sss_chi(nx: u32, ny: u32, kx: u32, ky: u32, nup: u32)
-                              -> CoordMatrix<CComplex<f64>> {
+                               -> CoordMatrix<CComplex<f64>> {
     consv::ks::h_sss_chi(Dim(nx), Dim(ny), K(kx), K(ky), nup)
 }
 

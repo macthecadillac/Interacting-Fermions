@@ -3,7 +3,6 @@
 ///     ks
 ///     ksl
 
-
 /// This module contains functions that work under the assumption that lattice
 /// momentum is conserved.
 pub mod k {
@@ -144,8 +143,7 @@ pub mod ks {
     use common::*;
     use ops;
 
-    fn bloch_states<'a>(nx: Dim, ny: Dim, kx: K, ky: K, nup: u32)
-                        -> BlochFuncSet {
+    fn bloch_states<'a>(nx: Dim, ny: Dim, kx: K, ky: K, nup: u32) -> BlochFuncSet {
         let n = nx * ny;
 
         let sz_basis_states = sz_basis(n, nup);
@@ -229,7 +227,7 @@ pub mod ks {
     }
 
     pub fn h_sss_chi(nx: Dim, ny: Dim, kx: K, ky: K, nup: u32)
-                    -> CoordMatrix<CComplex<f64>> {
+                     -> CoordMatrix<CComplex<f64>> {
         let bfuncs = bloch_states(nx, ny, kx, ky, nup);
         let sites = triangular_vert_sites(nx, ny);
         ops::sss_chi(&sites, &bfuncs)
@@ -262,8 +260,7 @@ pub mod ksl {
     use common::*;
     use ops;
 
-    fn bloch_states<'a>(nx: Dim, ny: Dim, kx: K, ky: K, nup: u32)
-                        -> BlochFuncSet {
+    fn bloch_states<'a>(nx: Dim, ny: Dim, kx: K, ky: K, nup: u32) -> BlochFuncSet {
         let n = nx * ny;
 
         let sz_basis_states = sz_basis(n, nup);

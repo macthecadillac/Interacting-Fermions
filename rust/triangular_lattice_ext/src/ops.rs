@@ -157,13 +157,13 @@ pub fn ss_pmz_elements(nx: Dim, ny: Dim,
 #[allow(unused)]
 #[allow(non_snake_case)]
 pub fn sss_chi_elements(nx: Dim, ny: Dim,
-                       sites: &(Vec<BinaryBasis>,
-                        Vec<BinaryBasis>,
-                        Vec<BinaryBasis>),
-                       orig_state: &BlochFunc,
-                       dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
-                       hashtable: &FnvHashMap<&BinaryBasis, &BlochFunc>)
-                       -> FnvHashMap<u32, Complex<f64>> {
+                        sites: &(Vec<BinaryBasis>,
+                         Vec<BinaryBasis>,
+                         Vec<BinaryBasis>),
+                        orig_state: &BlochFunc,
+                        dec_to_ind: &FnvHashMap<BinaryBasis, u32>,
+                        hashtable: &FnvHashMap<&BinaryBasis, &BlochFunc>)
+                        -> FnvHashMap<u32, Complex<f64>> {
     let J = Complex::new(0., 0.5);
     let mut j_element = FnvHashMap::default();
     let (ref site1, ref site2, ref site3) = *sites;
@@ -286,7 +286,7 @@ pub fn ss_pmz(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>), bfuncs: &BlochFuncSe
 }
 
 pub fn sss_chi(sites: &(Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>),
-              bfuncs: &BlochFuncSet)
-              -> CoordMatrix<CComplex<f64>> {
+               bfuncs: &BlochFuncSet)
+               -> CoordMatrix<CComplex<f64>> {
     off_diag_ops(sss_chi_elements, &sites, &bfuncs)
 }
