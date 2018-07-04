@@ -243,6 +243,7 @@ fn permute<T>(elements: Vec<T>) -> Vec<T>
     }
 }
 
+/// convert binary representations of states (vecs of bool) into BinaryBasis
 pub fn compose(v: &Vec<bool>) -> BinaryBasis {
     v.iter().rev()
      .enumerate()
@@ -268,41 +269,37 @@ pub fn choose(n: Dim, c: u32) -> u64 {
        .sum()
 }
 
+/// generate the set of all Sz basis states
 pub fn sz_basis(n: Dim, nup: u32) -> Vec<BinaryBasis> {
-
-    fn aux(elements: Vec<bool>, l_size: u64) -> Vec<BinaryBasis> {
-        let mut curr_perm = elements.clone();
-        let mut acc = Vec::with_capacity(l_size as usize);
-        acc.push(compose(&curr_perm));
-
-        loop {
-            let v = permute(curr_perm.clone());
-            if v == elements {
-                break;
-            } else {
-                acc.push(compose(&v));
-                curr_perm = v;
-            }
-        }
-        acc
-    }
-
-    let mut ups = [true].iter()
+    // starting binary representation of a state on the lattice
+    let mut spins = [true].iter()
                         .cloned()
                         .cycle()
                         .take(nup as usize)
                         .collect::<Vec<bool>>();
-
     let mut downs = [false].iter()
                            .cloned()
                            .cycle()
                            .take((n.raw_int() - nup) as usize)
                            .collect();
+    spins.append(&mut downs);
 
-    ups.append(&mut downs);
     let l_size = choose(n, nup);
+    let mut curr_perm = spins.clone();
+    let mut acc = Vec::with_capacity(l_size as usize);
+    acc.push(compose(&curr_perm));
 
-    aux(ups, l_size)
+    // find all possible permutations of the representation
+    loop {
+        let v = permute(curr_perm.clone());
+        if v == spins {
+            break;
+        } else {
+            acc.push(compose(&v));
+            curr_perm = v;
+        }
+    }
+    acc
 }
 
 pub fn translate_x(dec: BinaryBasis, nx: Dim, ny: Dim) -> BinaryBasis {
@@ -503,34 +500,34 @@ mod tests {
 
     #[test]
     fn permute_test1() {
-        let l = vec![3, 4, 5, 6];
-        let ans = vec![2, 4, 5, 6];
-        assert_eq!(permute(l, 7), ans);
+        let l = vec![false, false, false, true, true, true, true];
+        let ans = vec![false, false, true, false, true, true, true];
+        assert_eq!(permute(l), ans);
     }
 
     #[test]
     fn permute_test2() {
-        let l = vec![0, 1, 4, 5, 6];
-        let ans = vec![1, 2, 3, 5, 6];
-        assert_eq!(permute(l, 9), ans);
+        let l = vec![true, true, false, false, true, true, true, false, false];
+        let ans = vec![true, true, false, true, false, false, false, true, true];
+        assert_eq!(permute(l), ans);
     }
 
     #[test]
     fn permute_test3() {
-        let l = vec![0, 1, 2];
-        let ans = vec![3, 4, 5];
-        assert_eq!(permute(l, 5), ans);
+        let l = vec![true, true, true, false, false];
+        let ans = vec![false, false, true, true, true];
+        assert_eq!(permute(l), ans);
     }
 
     #[test]
     fn compose_test1() {
-        let l = vec![0, 1, 2, 3];
+        let l = vec![true, true, true, true];
         assert_eq!(compose(&l), BinaryBasis(15));
     }
 
     #[test]
     fn compose_test2() {
-        let l = vec![1, 3, 5];
+        let l = vec![true, false, true, false, true, false];
         assert_eq!(compose(&l), BinaryBasis(42));
     }
 
