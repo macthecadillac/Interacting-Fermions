@@ -196,39 +196,36 @@ fn permute<T>(elements: Vec<T>) -> Vec<T>
     {
         match elements {
             &[_] => None, // inaccessible branch
-            &[a, b] => match b > a {
-                false => None,
-                true => Some(VecDeque::from(vec![b, a]))
-            },
+            &[a, b] => {
+                match b > a {
+                    false => None,
+                    true => Some(VecDeque::from(vec![b, a]))
+                }
+            }
             // if "elements" has more than three elements, remove the first element
             // and continue down the recursion
             _ => {
-                match elements.split_first() {
-                    None => None, // should be inaccessible
-                    Some((&first, rest)) => {
-                        match aux(rest) {
-                            // found next permutation: return our results
-                            Some(mut v) => {
-                                v.push_front(first);
-                                Some(v)
-                            }
-                            // nothing have been done. "rest" should be sorted from
-                            // greatest to smallest at this point.
-                            None => {
-                                let iter = rest.to_vec().into_iter().rev();
-                                let mut nv: VecDeque<T> = VecDeque::from_iter(iter);
+                let (&first, rest) = elements.split_first().unwrap();
+                match aux(rest) {
+                    // found next permutation: return our results
+                    Some(mut v) => {
+                        v.push_front(first);
+                        Some(v)
+                    }
+                    // nothing have been done. "rest" should be sorted from greatest
+                    // to smallest at this point.
+                    None => {
+                        let iter = rest.to_vec().into_iter().rev();
+                        let mut nv: VecDeque<T> = VecDeque::from_iter(iter);
 
-                                // find the smallest element that is greater than
-                                // "first"
-                                match nv.iter().position(|&x| x > first) {
-                                    // end of this part of the recursion
-                                    None => None,
-                                    Some(i) => {
-                                        nv.push_front(first);
-                                        nv.swap(0, i + 1);
-                                        Some(nv)
-                                    }
-                                }
+                        // find the smallest element that is greater than "first"
+                        match nv.iter().position(|&x| x > first) {
+                            // end of this part of the recursion
+                            None => None,
+                            Some(i) => {
+                                nv.push_front(first);
+                                nv.swap(0, i + 1);
+                                Some(nv)
                             }
                         }
                     }
@@ -273,10 +270,10 @@ pub fn choose(n: Dim, c: u32) -> u64 {
 pub fn sz_basis(n: Dim, nup: u32) -> Vec<BinaryBasis> {
     // starting binary representation of a state on the lattice
     let mut spins = [true].iter()
-                        .cloned()
-                        .cycle()
-                        .take(nup as usize)
-                        .collect::<Vec<bool>>();
+                          .cloned()
+                          .cycle()
+                          .take(nup as usize)
+                          .collect::<Vec<bool>>();
     let mut downs = [false].iter()
                            .cloned()
                            .cycle()
@@ -461,12 +458,14 @@ pub fn find_leading_state<'a>(dec: BinaryBasis,
                               -> Option<(&'a BlochFunc, Complex<f64>)> {
     match hashtable.get(&dec) {
         None => None,
-        Some(&cntd_state) => match cntd_state.decs.get(&dec) {
-            None => None,
-            Some(&p) => {
-                let mut phase = p.conj();
-                phase /= phase.norm();
-                Some((cntd_state, phase))
+        Some(&cntd_state) => {
+            match cntd_state.decs.get(&dec) {
+                None => None,
+                Some(&p) => {
+                    let mut phase = p.conj();
+                    phase /= phase.norm();
+                    Some((cntd_state, phase))
+                }
             }
         }
     }
