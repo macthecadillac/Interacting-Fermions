@@ -188,7 +188,7 @@ impl<T> CoordMatrix<T> {
 
 /// A completely recursive implementation of a lexicographical permutation
 /// algorithm.
-fn permute<T>(elements: Vec<T>) -> Vec<T>
+fn permute<T>(elements: &[T]) -> Vec<T>
     where T: Debug + PartialEq + Copy + Ord
 {
     fn aux<T>(elements: &[T]) -> Option<VecDeque<T>>
@@ -196,12 +196,10 @@ fn permute<T>(elements: Vec<T>) -> Vec<T>
     {
         match elements {
             &[_] => None, // inaccessible branch
-            &[a, b] => {
-                match b > a {
-                    false => None,
-                    true => Some(VecDeque::from(vec![b, a]))
-                }
-            }
+            &[a, b] => match b > a {
+                false => None,
+                true => Some(VecDeque::from(vec![b, a]))
+            },
             // if "elements" has more than three elements, remove the first element
             // and continue down the recursion
             _ => {
@@ -234,14 +232,14 @@ fn permute<T>(elements: Vec<T>) -> Vec<T>
         }
     }
 
-    match aux(elements.as_slice()) {
+    match aux(elements) {
         Some(v) => v.into_iter().collect(),
-        None => elements.into_iter().rev().collect()
+        None => elements.to_vec().into_iter().rev().collect()
     }
 }
 
 /// convert binary representations of states (vecs of bool) into BinaryBasis
-pub fn compose(v: &Vec<bool>) -> BinaryBasis {
+pub fn vec_to_binarybasis(v: &Vec<bool>) -> BinaryBasis {
     v.iter().rev()
      .enumerate()
      .fold(BinaryBasis(0),
@@ -284,15 +282,15 @@ pub fn sz_basis(n: Dim, nup: u32) -> Vec<BinaryBasis> {
     let l_size = choose(n, nup);
     let mut curr_perm = spins.clone();
     let mut acc = Vec::with_capacity(l_size as usize);
-    acc.push(compose(&curr_perm));
+    acc.push(vec_to_binarybasis(&curr_perm));
 
     // find all possible permutations of the representation
     loop {
-        let v = permute(curr_perm.clone());
+        let v = permute(&curr_perm);
         if v == spins {
             break;
         } else {
-            acc.push(compose(&v));
+            acc.push(vec_to_binarybasis(&v));
             curr_perm = v;
         }
     }
@@ -458,14 +456,12 @@ pub fn find_leading_state<'a>(dec: BinaryBasis,
                               -> Option<(&'a BlochFunc, Complex<f64>)> {
     match hashtable.get(&dec) {
         None => None,
-        Some(&cntd_state) => {
-            match cntd_state.decs.get(&dec) {
-                None => None,
-                Some(&p) => {
-                    let mut phase = p.conj();
-                    phase /= phase.norm();
-                    Some((cntd_state, phase))
-                }
+        Some(&cntd_state) => match cntd_state.decs.get(&dec) {
+            None => None,
+            Some(&p) => {
+                let mut phase = p.conj();
+                phase /= phase.norm();
+                Some((cntd_state, phase))
             }
         }
     }
@@ -501,33 +497,33 @@ mod tests {
     fn permute_test1() {
         let l = vec![false, false, false, true, true, true, true];
         let ans = vec![false, false, true, false, true, true, true];
-        assert_eq!(permute(l), ans);
+        assert_eq!(permute(&l), ans);
     }
 
     #[test]
     fn permute_test2() {
         let l = vec![true, true, false, false, true, true, true, false, false];
         let ans = vec![true, true, false, true, false, false, false, true, true];
-        assert_eq!(permute(l), ans);
+        assert_eq!(permute(&l), ans);
     }
 
     #[test]
     fn permute_test3() {
         let l = vec![true, true, true, false, false];
         let ans = vec![false, false, true, true, true];
-        assert_eq!(permute(l), ans);
+        assert_eq!(permute(&l), ans);
     }
 
     #[test]
     fn compose_test1() {
         let l = vec![true, true, true, true];
-        assert_eq!(compose(&l), BinaryBasis(15));
+        assert_eq!(vec_to_binarybasis(&l), BinaryBasis(15));
     }
 
     #[test]
     fn compose_test2() {
         let l = vec![true, false, true, false, true, false];
-        assert_eq!(compose(&l), BinaryBasis(42));
+        assert_eq!(vec_to_binarybasis(&l), BinaryBasis(42));
     }
 
     #[test]
