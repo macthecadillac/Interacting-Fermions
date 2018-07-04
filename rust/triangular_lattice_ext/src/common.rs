@@ -4,6 +4,9 @@ use num_bigint::*;
 use num_complex::Complex;
 use std::{
     cmp::Ordering,
+    collections::VecDeque,
+    fmt::Debug,
+    iter::FromIterator,
     mem,
     ops::{
         Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, DivAssign,
@@ -183,35 +186,68 @@ impl<T> CoordMatrix<T> {
     }
 }
 
-pub fn permute(mut v: Vec<i32>, lmax: u32) -> Vec<i32> {
-    if v[0] > 0 {
-        v[0] -= 1;
-        v
-    } else {
-        let mut i = 1;
-        while i < v.len() {
-            if v[i] - v[i - 1] > 1 {
-                v[i] -= 1;
-                break;
-            } else {
-                i += 1;
+/// A completely recursive implementation of a lexicographical permutation
+/// algorithm.
+fn permute<T>(elements: Vec<T>) -> Vec<T>
+    where T: Debug + PartialEq + Copy + Ord
+{
+    fn aux<T>(elements: &[T]) -> Option<VecDeque<T>>
+        where T: Debug + PartialEq + Copy + Ord
+    {
+        match elements {
+            &[_] => None, // inaccessible branch
+            &[a, b] => match b > a {
+                false => None,
+                true => Some(VecDeque::from(vec![b, a]))
+            },
+            // if "elements" has more than three elements, remove the first element
+            // and continue down the recursion
+            _ => {
+                match elements.split_first() {
+                    None => None, // should be inaccessible
+                    Some((&first, rest)) => {
+                        match aux(rest) {
+                            // found next permutation: return our results
+                            Some(mut v) => {
+                                v.push_front(first);
+                                Some(v)
+                            }
+                            // nothing have been done. "rest" should be sorted from
+                            // greatest to smallest at this point.
+                            None => {
+                                let iter = rest.to_vec().into_iter().rev();
+                                let mut nv: VecDeque<T> = VecDeque::from_iter(iter);
+
+                                // find the smallest element that is greater than
+                                // "first"
+                                match nv.iter().position(|&x| x > first) {
+                                    // end of this part of the recursion
+                                    None => None,
+                                    Some(i) => {
+                                        nv.push_front(first);
+                                        nv.swap(0, i + 1);
+                                        Some(nv)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-        let mut j = i;
-        if i == v.len() {
-            v[i - 1] = lmax as i32;
-            j -= 1;
-        }
-        while j > 0 {
-            v[j - 1] = v[j] - 1;
-            j -= 1;
-        }
-        v
+    }
+
+    match aux(elements.as_slice()) {
+        Some(v) => v.into_iter().collect(),
+        None => elements.into_iter().rev().collect()
     }
 }
 
-pub fn compose(v: &Vec<i32>) -> BinaryBasis {
-    v.iter().fold(BinaryBasis(0), |acc, &x| POW2[x as usize] + acc)
+pub fn compose(v: &Vec<bool>) -> BinaryBasis {
+    v.iter().rev()
+     .enumerate()
+     .fold(BinaryBasis(0),
+           |acc, (i, &x)| if x { POW2[i as usize] + acc } else { acc })
 }
 
 pub fn fac(n: BigUint) -> BigUint {
@@ -233,16 +269,40 @@ pub fn choose(n: Dim, c: u32) -> u64 {
 }
 
 pub fn sz_basis(n: Dim, nup: u32) -> Vec<BinaryBasis> {
-    let mut l = (0..nup as i32).collect::<Vec<i32>>();
-    let l_size = choose(n, nup);
-    let mut sz_basis_states: Vec<BinaryBasis> =
-        Vec::with_capacity(l_size as usize);
-    for _ in 0..l_size {
-        l = permute(l, n.raw_int() - 1);
-        let i = compose(&l);
-        sz_basis_states.push(i);
+
+    fn aux(elements: Vec<bool>, l_size: u64) -> Vec<BinaryBasis> {
+        let mut curr_perm = elements.clone();
+        let mut acc = Vec::with_capacity(l_size as usize);
+        acc.push(compose(&curr_perm));
+
+        loop {
+            let v = permute(curr_perm.clone());
+            if v == elements {
+                break;
+            } else {
+                acc.push(compose(&v));
+                curr_perm = v;
+            }
+        }
+        acc
     }
-    sz_basis_states
+
+    let mut ups = [true].iter()
+                        .cloned()
+                        .cycle()
+                        .take(nup as usize)
+                        .collect::<Vec<bool>>();
+
+    let mut downs = [false].iter()
+                           .cloned()
+                           .cycle()
+                           .take((n.raw_int() - nup) as usize)
+                           .collect();
+
+    ups.append(&mut downs);
+    let l_size = choose(n, nup);
+
+    aux(ups, l_size)
 }
 
 pub fn translate_x(dec: BinaryBasis, nx: Dim, ny: Dim) -> BinaryBasis {
@@ -334,7 +394,8 @@ pub fn interacting_sites(nx: Dim, ny: Dim, l: I)
     (f(site1), f(site2))
 }
 
-pub fn triangular_vert_sites(nx: Dim, ny: Dim)
+pub fn triangular_vert_sites(
+    nx: Dim, ny: Dim)
     -> (Vec<BinaryBasis>, Vec<BinaryBasis>, Vec<BinaryBasis>) {
     let mut site1 = Vec::new();
     let mut site2 = Vec::new();
