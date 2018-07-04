@@ -269,16 +269,16 @@ pub fn choose(n: Dim, c: u32) -> u64 {
 /// generate the set of all Sz basis states
 pub fn sz_basis(n: Dim, nup: u32) -> Vec<BinaryBasis> {
     // starting binary representation of a state on the lattice
-    let mut spins = [true].iter()
-                          .cloned()
-                          .cycle()
-                          .take(nup as usize)
-                          .collect::<Vec<bool>>();
-    let mut downs = [false].iter()
-                           .cloned()
-                           .cycle()
-                           .take((n.raw_int() - nup) as usize)
-                           .collect();
+    let mut spins = Vec::new();
+    for _ in 0..nup as usize {
+        spins.push(true);
+    }
+
+    let mut downs = Vec::new();
+    for _ in 0..(n.raw_int() - nup) as usize {
+        downs.push(false)
+    }
+
     spins.append(&mut downs);
 
     let l_size = choose(n, nup);
