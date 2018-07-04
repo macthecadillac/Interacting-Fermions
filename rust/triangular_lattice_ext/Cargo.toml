@@ -6,7 +6,7 @@ build = "build.rs"
 
 [lib]
 name = "triangular_lattice_ext"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [build-dependencies]
 cbindgen = { git = "https://github.com/eqrion/cbindgen.git", branch = "master" }
