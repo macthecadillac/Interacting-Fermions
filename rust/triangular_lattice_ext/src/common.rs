@@ -239,7 +239,7 @@ fn permute<T>(elements: &[T]) -> Vec<T>
 }
 
 /// convert binary representations of states (vecs of bool) into BinaryBasis
-pub fn vec_to_binarybasis(v: &Vec<bool>) -> BinaryBasis {
+pub fn vec_to_binarybasis(v: &[bool]) -> BinaryBasis {
     v.iter().rev()
      .enumerate()
      .fold(BinaryBasis(0),
