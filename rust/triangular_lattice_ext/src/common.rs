@@ -194,8 +194,11 @@ fn permute<T>(elements: &[T]) -> Vec<T>
     fn aux<T>(elements: &[T]) -> Option<VecDeque<T>>
         where T: Debug + PartialEq + Copy + Ord
     {
+        // TODO: could remove this step and directly match split_first with
+        // Some/None since the first case will give None and the second will
+        // work with the following procedure under "match aux(rest)..."
         match elements {
-            &[_] => None, // inaccessible branch
+            &[] | &[_] => None, // inaccessible branch
             &[a, b] => match b > a {
                 false => None,
                 true => Some(VecDeque::from(vec![b, a]))
